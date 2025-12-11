@@ -1,0 +1,48 @@
+[app]
+name = "wsai"
+host = "0.0.0.0"
+port = 9091
+env = "dev"
+enable_register = true
+
+[jwt]
+secret = "qwertyuiopasdfghjklzxcvbnm"
+access_ttl = "24h"
+refresh_ttl = "365d"
+issuer = "ws"
+subject = "wsai"
+
+[mysql]
+host = "127.0.0.1"
+port = 3307
+user = "root"
+password = "a1234567"
+databaseName = "wsai"
+charset = "utf8mb4"
+maxIdleConns = 10
+maxOpenConns = 100
+
+[email]
+email = "wtycyy@qq.com"
+authcode = "egpmnpndnmpneaie"
+host = "smtp.qq.com"
+port = 465
+is_ssl = true
+
+[openai]
+api_key = "sk-4960008ac5fe4f468e614c107bcecc0f"
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+model = "qwen-plus"
+
+[redis]
+host = "127.0.0.1"
+port = 6379
+password = ""
+db = 0
+
+[rabbitmq]
+host = "127.0.0.1"
+port = 5672
+username = "root"
+password = "a1234567"
+vhost = "/"

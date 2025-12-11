@@ -1,0 +1,11 @@
+[app]
+name = "wsai"
+port = "9091"
+nev = "dev"
+enable_register = true
+[jwt]
+secret = "qwertyuiopasdfghjklzxcvbnm"
+access_ttl = "24h"
+refresh_ttl = "365d"
+issuer = "ws"
+subjet = "wsai"
