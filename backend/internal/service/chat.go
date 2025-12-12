@@ -2,8 +2,9 @@ package user
 
 import (
 	"context"
-	"github.com/cloudwego/eino/schema"
 	"wsai/backend/internal/model"
+
+	"github.com/cloudwego/eino/schema"
 )
 
 func StreamChat(ctx context.Context, userMsg string) (model.ChatStream, error) {
