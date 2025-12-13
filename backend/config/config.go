@@ -43,10 +43,10 @@ type Config struct {
 
 	RedisConfig struct {
 		Host     string `mapstructure:"host"`
-		Port     string `mapstructure:"port"`
+		Port     int    `mapstructure:"port"`
 		Password string `mapstructure:"password"`
 		DB       int    `mapstructure:"db"`
-	} `mapstructuer:"redis"`
+	} `mapstructure:"redis"`
 
 	RabbitmqConfig struct {
 		Host     string `mapstructure:"host"`
@@ -80,9 +80,7 @@ func InitConfig() {
 			v.SetConfigName("config.dev") // 本地开发默认
 		}
 
-		v.AddConfigPath("./config")
-		v.AddConfigPath("../config")
-		v.AddConfigPath("/etc/wsai/config")
+		v.AddConfigPath("./backend/config")
 
 		v.SetEnvPrefix("APP")
 		v.AutomaticEnv()

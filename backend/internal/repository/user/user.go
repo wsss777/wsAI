@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"wsai/backend/internal/model"
+	"wsai/backend/utils"
 	"wsai/backend/utils/mysql"
 
 	"gorm.io/gorm"
@@ -29,4 +30,16 @@ func IsExistUserWithEmail(email string) (bool, *model.User) {
 		return false, nil
 	}
 	return true, user
+}
+func Register(username, email, password string) (*model.User, bool) {
+	if user, err := mysql.InsertUser(&model.User{
+		Email:    email,
+		Name:     username,
+		Username: username,
+		Password: utils.MD5(password),
+	}); err != nil {
+		return nil, false
+	} else {
+		return user, true
+	}
 }

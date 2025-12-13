@@ -1,11 +1,13 @@
 package common
 
+import "wsai/backend/utils/common/code"
+
 type Response struct {
-	StatusCode Code   `json:"status_code"`
-	StatusMsg  string `json:"status_msg,omitempty"`
+	StatusCode code.Code `json:"status_code"`
+	StatusMsg  string    `json:"status_msg,omitempty"`
 }
 
-func (r *Response) CodeOf(code Code) Response {
+func (r *Response) CodeOf(code code.Code) Response {
 	if r == nil {
 		r = new(Response)
 	}
@@ -15,5 +17,5 @@ func (r *Response) CodeOf(code Code) Response {
 }
 
 func (r *Response) Success() {
-	r.CodeOf(CodeSuccess)
+	r.CodeOf(code.CodeSuccess)
 }

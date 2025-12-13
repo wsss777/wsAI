@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 	"wsai/backend/config"
@@ -17,7 +18,7 @@ func Init() error {
 	port := config.C.RedisConfig.Port
 	password := config.C.RedisConfig.Password
 	db := config.C.RedisConfig.DB
-	addr := host + ":" + port
+	addr := host + ":" + strconv.Itoa(port)
 	Rdb = redis.NewClient(&redis.Options{
 		Addr:         addr,
 		Password:     password,

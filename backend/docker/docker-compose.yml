@@ -1,0 +1,39 @@
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: wsai-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: a1234567
+      MYSQL_DATABASE: wsai
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command:
+      --default-authentication-plugin=mysql_native_password
+  redis:
+    image: redis:7
+    container_name: wsai-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: wsai-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: root
+      RABBITMQ_DEFAULT_PASS: a1234567
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+volumes:
+    mysql-data:
+    redis-data:
