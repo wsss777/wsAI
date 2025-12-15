@@ -1,19 +1,28 @@
+// @title WsAI Backend API
+// @version 1.0
+// @description WsAI 项目 Swagger 文档
+// @host localhost:9091
+// @BasePath /
 package main
 
 import (
 	"fmt"
 	"log"
 	"wsai/backend/config"
+	_ "wsai/backend/docs"
+
 	"wsai/backend/internal/router"
 	"wsai/backend/utils/mysql"
 	"wsai/backend/utils/redis"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func StartServer(addr string, port int) error {
 	r := router.InitRouter()
-
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	return r.Run(fmt.Sprintf("%s:%d", addr, port))
 
 }
@@ -24,8 +33,8 @@ func main() {
 		log.Println("MySQL 初始化失败:", err)
 	}
 	if err := redis.Init(); err != nil {
-		log.Printf("Redis 配置加载结果: host=%s, port=%d, password=%s, db=%d",
-			config.C.RedisConfig.Host, config.C.RedisConfig.Port, config.C.RedisConfig.Password, config.C.RedisConfig.DB)
+		log.Printf("Redis 初始化失败: %v", err)
+
 	}
 
 	//rabbitmq.Init()
@@ -39,6 +48,6 @@ func main() {
 
 	err := StartServer(host, port)
 	if err != nil {
-		panic(err)
+		log.Fatalf("服务器启动失败: %v", err)
 	}
 }
