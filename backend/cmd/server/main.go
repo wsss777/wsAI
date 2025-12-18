@@ -7,9 +7,10 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 	"wsai/backend/config"
 	_ "wsai/backend/docs"
+	"wsai/backend/internal/logger"
 
 	"wsai/backend/internal/router"
 	"wsai/backend/utils/mysql"
@@ -18,6 +19,7 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"go.uber.org/zap"
 )
 
 func StartServer(addr string, port int) error {
@@ -29,25 +31,43 @@ func StartServer(addr string, port int) error {
 
 func main() {
 	config.InitConfig()
-	if err := mysql.InitMysql(); err != nil {
-		log.Println("MySQL 初始化失败:", err)
-	}
-	if err := redis.Init(); err != nil {
-		log.Printf("Redis 初始化失败: %v", err)
-
-	}
-
-	//rabbitmq.Init()
-	if config.C.App.Env == "production" {
+	if config.C.App.Env == "prod" {
 		gin.SetMode(gin.ReleaseMode)
 	} else {
 		gin.SetMode(gin.DebugMode) // 默认
 	}
+	isProd := config.C.App.Env == "prod"
+	if err := logger.Init(isProd); err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err := logger.L().Sync(); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "zap Logger.Sync() failed: %v\n", err)
+		}
+	}()
+	logger.L().Info("服务启动",
+		zap.String("version", "v1"),
+		zap.String("env", config.C.App.Env),
+		zap.String("host", config.C.App.Host),
+		zap.Int("port", config.C.App.Port),
+	)
+
+	if err := mysql.InitMysql(); err != nil {
+		logger.L().Fatal("MySQL 初始化失败，无法继续运行", zap.Error(err))
+	}
+	if err := redis.Init(); err != nil {
+		logger.L().Error("Redis 初始化失败，将影响相关功能", zap.Error(err))
+	}
+
+	//rabbitmq.Init()
+
 	host := config.C.App.Host
 	port := config.C.App.Port
 
-	err := StartServer(host, port)
-	if err != nil {
-		log.Fatalf("服务器启动失败: %v", err)
+	if err := StartServer(host, port); err != nil {
+		logger.L().Fatal("服务器启动失败，无法继续运行",
+			zap.Error(err),
+			zap.String("listen_addr", fmt.Sprintf("%s:%d", host, port)),
+		)
 	}
 }
