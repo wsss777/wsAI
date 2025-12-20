@@ -52,7 +52,7 @@ func main() {
 		zap.Int("port", config.C.App.Port),
 	)
 
-	if err := mysql.InitMysql(); err != nil {
+	if err := mysql.Init(); err != nil {
 		logger.L().Fatal("MySQL 初始化失败，无法继续运行", zap.Error(err))
 	}
 	if err := redis.Init(); err != nil {
