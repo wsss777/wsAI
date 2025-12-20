@@ -12,6 +12,6 @@ func Error(c *gin.Context, code int, msg string) {
 	c.JSON(200, Resp{Code: code, Msg: msg, Data: nil})
 }
 
-//func Success(c *gin.Context, data interface{}) {
-//	c.JSON(200, Resp{Code: 200, Msg: "success", Data: data})
-//}
+func Success(c *gin.Context, data interface{}) {
+	c.JSON(200, Resp{Code: 200, Msg: "success", Data: data})
+}

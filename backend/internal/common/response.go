@@ -1,6 +1,8 @@
 package common
 
-import "wsai/backend/utils/common/code"
+import (
+	"wsai/backend/internal/common/code"
+)
 
 type Response struct {
 	StatusCode code.Code `json:"status_code"`

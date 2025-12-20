@@ -2,9 +2,9 @@ package session
 
 import (
 	"net/http"
+	"wsai/backend/internal/common"
+	"wsai/backend/internal/common/code"
 	"wsai/backend/internal/model"
-	"wsai/backend/utils/common"
-	"wsai/backend/utils/common/code"
 
 	"github.com/gin-gonic/gin"
 )

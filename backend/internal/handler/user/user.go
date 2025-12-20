@@ -2,10 +2,11 @@ package user
 
 import (
 	"net/http"
+	"wsai/backend/internal/common"
+	"wsai/backend/internal/common/code"
+
 	//"wsai/backend/internal/service"
 	"wsai/backend/internal/service/user"
-	"wsai/backend/utils/common"
-	"wsai/backend/utils/common/code"
 
 	"github.com/gin-gonic/gin"
 )

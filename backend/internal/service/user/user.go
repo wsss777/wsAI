@@ -3,13 +3,13 @@ package user
 import (
 	"context"
 	"time"
+	"wsai/backend/internal/common/code"
+	"wsai/backend/internal/middleware/jwt"
 	"wsai/backend/internal/model"
 	"wsai/backend/internal/repository/user"
+	"wsai/backend/internal/service/captcha"
+	myemail "wsai/backend/internal/service/email"
 	"wsai/backend/utils"
-	"wsai/backend/utils/common/code"
-	myemail "wsai/backend/utils/email"
-	"wsai/backend/utils/myjwt"
-	"wsai/backend/utils/redis"
 )
 
 func Login(username, password string) (string, code.Code) {
@@ -24,14 +24,14 @@ func Login(username, password string) (string, code.Code) {
 		return "", code.CodeInvalidPassword
 	}
 	//返回token
-	token, err := myjwt.GenerateToken(userInformation.ID, userInformation.Username)
+	token, err := jwt.GenerateToken(userInformation.ID, userInformation.Username)
 	if err != nil {
 		return "", code.CodeServerBusy
 	}
 	return token, code.CodeSuccess
 }
 
-func Register(email, password, captcha string) (string, code.Code) {
+func Register(email, password, captcha_ string) (string, code.Code) {
 	var ok bool
 	var userInformation *model.User
 	//1:先判断用户是否已经存在了
@@ -41,7 +41,7 @@ func Register(email, password, captcha string) (string, code.Code) {
 	//2:从redis中验证验证码是否有效
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if ok, _ := redis.CheckCaptchaForEmail(ctx, email, captcha); !ok {
+	if ok, _ := captcha.CheckCaptchaForEmail(ctx, email, captcha_); !ok {
 		return "", code.CodeInvalidCaptcha
 	}
 	//3：生成11位的账号
@@ -55,7 +55,7 @@ func Register(email, password, captcha string) (string, code.Code) {
 		return "", code.CodeServerBusy
 	}
 	// 6:生成Token
-	token, err := myjwt.GenerateToken(userInformation.ID, userInformation.Username)
+	token, err := jwt.GenerateToken(userInformation.ID, userInformation.Username)
 	if err != nil {
 		return "", code.CodeServerBusy
 	}
@@ -67,7 +67,7 @@ func SendCaptcha(email_ string) code.Code {
 	send_code := utils.GetRandomNumbers(6)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := redis.SetCaptchaForEmail(ctx, email_, send_code); err != nil {
+	if err := captcha.SetCaptchaForEmail(ctx, email_, send_code); err != nil {
 		return code.CodeServerBusy
 	}
 

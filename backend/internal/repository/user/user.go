@@ -4,7 +4,6 @@ import (
 	"context"
 	"wsai/backend/internal/model"
 	"wsai/backend/utils"
-	"wsai/backend/utils/mysql"
 
 	"gorm.io/gorm"
 )
@@ -17,7 +16,7 @@ const (
 var ctx = context.Background()
 
 func IsExistUser(username string) (bool, *model.User) {
-	user, err := mysql.GetUserByUsername(username)
+	user, err := GetUserByUsername(username)
 	if err == gorm.ErrRecordNotFound || user == nil {
 		return false, nil
 	}
@@ -25,14 +24,14 @@ func IsExistUser(username string) (bool, *model.User) {
 }
 
 func IsExistUserWithEmail(email string) (bool, *model.User) {
-	user, err := mysql.GetUserByEmail(email)
+	user, err := GetUserByEmail(email)
 	if err == gorm.ErrRecordNotFound || user == nil {
 		return false, nil
 	}
 	return true, user
 }
 func Register(username, email, password string) (*model.User, bool) {
-	if user, err := mysql.InsertUser(&model.User{
+	if user, err := InsertUser(&model.User{
 		Email:    email,
 		Name:     username,
 		Username: username,

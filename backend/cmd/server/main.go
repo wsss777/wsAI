@@ -11,10 +11,10 @@ import (
 	"wsai/backend/config"
 	_ "wsai/backend/docs"
 	"wsai/backend/internal/logger"
+	"wsai/backend/internal/mysql"
+	"wsai/backend/internal/redis"
 
 	"wsai/backend/internal/router"
-	"wsai/backend/utils/mysql"
-	"wsai/backend/utils/redis"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
