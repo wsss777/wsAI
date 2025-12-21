@@ -41,12 +41,14 @@ func GenerateMessageMQPara(sessionID string, content string, username string, is
 }
 
 // ProcessMessageDelivery 处理 RabbitMQ 投递的消息
-func ProcessMessageDelivery(msg amqp.Delivery) error {
+func ProcessMessageDelivery(msg *amqp.Delivery) error {
 	var para MessageMQPara
 	if err := json.Unmarshal(msg.Body, &para); err != nil {
 		logger.L().Error("RabbitMQ message unmarshal failed in processMessageDelivery",
 			zap.Error(err),
+			zap.Uint64("delivery_tag", msg.DeliveryTag),
 		)
+		msg.Nack(false, true)
 		return err
 	}
 	logger.L().Info("RabbitMQ received message",
@@ -54,6 +56,7 @@ func ProcessMessageDelivery(msg amqp.Delivery) error {
 		zap.String("user_name", para.Username),
 		zap.Bool("is_user", para.IsUser),
 		zap.Int("content_length", len(para.Content)),
+		zap.Uint64("delivery_tag", msg.DeliveryTag),
 	)
 
 	newMsg := &model.Message{
@@ -63,20 +66,21 @@ func ProcessMessageDelivery(msg amqp.Delivery) error {
 		IsUser:    para.IsUser,
 		CreatedAt: time.Now(),
 	}
-	go func(m *model.Message, tag uint64) {
-		if _, err := message.CreateMessage(m); err != nil {
-			logger.L().Error("Async save chat message to DB failed",
-				zap.Error(err),
-				zap.String("session_id", m.SessionID),
-				zap.Uint64("delivery_tag", tag),
-				zap.String("username", m.UserName),
-			)
-		} else {
-			logger.L().Debug("Chat message saved to DB successfully",
-				zap.String("session_id", m.SessionID),
-				zap.Uint64("delivery_tag", tag),
-			)
-		}
-	}(newMsg, msg.DeliveryTag)
+	if _, err := message.CreateMessage(newMsg); err != nil {
+		logger.L().Error("Save chat message to DB failed",
+			zap.Error(err),
+			zap.String("session_id", newMsg.SessionID),
+			zap.Uint64("delivery_tag", msg.DeliveryTag),
+			zap.String("username", newMsg.UserName),
+		)
+		// 保存失败：拒绝消息并 requeue（让同一个或别的消费者重试）
+		msg.Nack(false, true)
+		return err
+	}
+	logger.L().Debug("Chat message saved to DB successfully",
+		zap.String("session_id", newMsg.SessionID),
+		zap.Uint64("delivery_tag", msg.DeliveryTag),
+	)
+	msg.Ack(false)
 	return nil
 }

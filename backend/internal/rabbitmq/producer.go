@@ -16,7 +16,7 @@ func (r *RabbitMQ) PublishWork(message []byte) error {
 
 	_, err := r.channel.QueueDeclare(
 		r.Key,
-		false,
+		true,
 		false,
 		false,
 		false,
@@ -36,14 +36,16 @@ func (r *RabbitMQ) PublishWork(message []byte) error {
 		false,
 		false,
 		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        message,
+			ContentType:  "text/plain",
+			DeliveryMode: amqp.Persistent,
+			Body:         message,
 		},
 	)
 	if err != nil {
 		logger.L().Error("RabbitMQ publish message failed",
 			zap.Error(err),
 			zap.String("queue", r.Key),
+
 			zap.ByteString("message", message),
 		)
 		return err
