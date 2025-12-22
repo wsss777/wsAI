@@ -1,9 +1,9 @@
 package message
 
 import (
+	"wsai/backend/internal/common/mysql"
 	"wsai/backend/internal/logger"
 	"wsai/backend/internal/model"
-	"wsai/backend/internal/mysql"
 
 	"go.uber.org/zap"
 )

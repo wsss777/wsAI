@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 	"time"
-	redis2 "wsai/backend/internal/redis"
+	redis2 "wsai/backend/internal/common/redis"
 
 	"github.com/redis/go-redis/v9"
 )

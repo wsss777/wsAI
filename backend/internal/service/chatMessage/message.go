@@ -1,4 +1,4 @@
-package chat
+package chatMessage
 
 import (
 	"encoding/json"
@@ -67,7 +67,7 @@ func ProcessMessageDelivery(msg *amqp.Delivery) error {
 		CreatedAt: time.Now(),
 	}
 	if _, err := message.CreateMessage(newMsg); err != nil {
-		logger.L().Error("Save chat message to DB failed",
+		logger.L().Error("Save chatMessage message to DB failed",
 			zap.Error(err),
 			zap.String("session_id", newMsg.SessionID),
 			zap.Uint64("delivery_tag", msg.DeliveryTag),

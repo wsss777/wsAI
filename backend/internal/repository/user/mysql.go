@@ -1,8 +1,8 @@
 package user
 
 import (
+	"wsai/backend/internal/common/mysql"
 	"wsai/backend/internal/model"
-	"wsai/backend/internal/mysql"
 )
 
 func InsertUser(user *model.User) (*model.User, error) {

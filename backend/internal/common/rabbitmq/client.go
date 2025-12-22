@@ -5,7 +5,7 @@ import (
 	"sync"
 	"wsai/backend/config"
 	"wsai/backend/internal/logger"
-	"wsai/backend/internal/service/chat"
+	"wsai/backend/internal/service/chatMessage"
 
 	"github.com/streadway/amqp"
 	"go.uber.org/zap"
@@ -20,7 +20,7 @@ var once sync.Once
 
 func InitRabbitMQ() {
 	RMQMessage = NewWorkRabbitMQ("Message")
-	go RMQMessage.ConsumeWork(chat.ProcessMessageDelivery)
+	go RMQMessage.ConsumeWork(chatMessage.ProcessMessageDelivery)
 }
 func DestroyRabbitMQ() {
 	if RMQMessage != nil {

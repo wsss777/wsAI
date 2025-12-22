@@ -7,8 +7,8 @@ import (
 )
 
 func AIRouter(r *gin.RouterGroup) {
-	// 聊天会话资源集合：/chat/sessions
-	sessions := r.Group("/chat/sessions")
+	// 聊天会话资源集合：/chatMessage/sessions
+	sessions := r.Group("/chatMessage/sessions")
 	{
 		// GET: 获取当前用户的所有会话列表（保留，因为不是发送接口）
 		//1
@@ -21,7 +21,7 @@ func AIRouter(r *gin.RouterGroup) {
 		sessions.POST("/stream", session.CreateStreamSessionAndSendFirstMessage)
 	}
 
-	// 单个会话资源：/chat/sessions/:session_id
+	// 单个会话资源：/chatMessage/sessions/:session_id
 	sessionGroup := sessions.Group("/:session_id")
 	{
 		// POST: 向已有会话发送消息并流式返回 AI 回复

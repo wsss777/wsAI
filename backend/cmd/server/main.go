@@ -10,10 +10,9 @@ import (
 	"os"
 	"wsai/backend/config"
 	_ "wsai/backend/docs"
+	"wsai/backend/internal/common/mysql"
+	"wsai/backend/internal/common/redis"
 	"wsai/backend/internal/logger"
-	"wsai/backend/internal/mysql"
-	"wsai/backend/internal/redis"
-
 	"wsai/backend/internal/router"
 
 	"github.com/gin-gonic/gin"
