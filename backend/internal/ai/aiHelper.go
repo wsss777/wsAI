@@ -1,31 +1,31 @@
-package aihelper
+package ai
 
 import (
 	"context"
 	"sync"
-	"wsai/backend/internal/ai"
 	"wsai/backend/internal/common/rabbitmq"
 	"wsai/backend/internal/logger"
 	"wsai/backend/internal/model"
 	"wsai/backend/internal/service/chatMessage"
+	"wsai/backend/utils"
 
 	"go.uber.org/zap"
 )
 
 // 一个会话绑定一个AIHelper
 type AIHelper struct {
-	model     ai.AIModel
-	message   []*model.Message
+	model     AIModel
+	messages  []*model.Message
 	muRW      sync.RWMutex
 	SessionID string
 	saveFunc  func(*model.Message) (*model.Message, error)
 }
 
 // NewAIHelper 创建新的AIHelper实例
-func NewAIHelper(model_ ai.AIModel, SessionID string) *AIHelper {
+func NewAIHelper(model_ AIModel, SessionID string) *AIHelper {
 	return &AIHelper{
-		model:   model_,
-		message: make([]*model.Message, 0, 20),
+		model:    model_,
+		messages: make([]*model.Message, 0, 20),
 		saveFunc: func(msg *model.Message) (*model.Message, error) {
 			data, genErr := chatMessage.GenerateMessageMQPara(msg.SessionID, msg.Content, msg.UserName, msg.IsUser)
 			if genErr != nil {
@@ -61,7 +61,7 @@ func (a *AIHelper) AddMessage(Content string, UserName string, IsUser bool, Save
 		UserName:  UserName,
 		IsUser:    IsUser,
 	}
-	a.message = append(a.message, &userMsg)
+	a.messages = append(a.messages, &userMsg)
 	if Save {
 		if _, err := a.saveFunc(&userMsg); err != nil {
 			logger.L().Warn("Call saveFunc failed ",
@@ -84,17 +84,44 @@ func (a *AIHelper) SetSaveFunc(saveFunc func(*model.Message) (*model.Message, er
 func (a *AIHelper) GetAllMessage() []*model.Message {
 	a.muRW.RLock()
 	defer a.muRW.RUnlock()
-	out := make([]*model.Message, len(a.message))
-	copy(out, a.message)
+	out := make([]*model.Message, len(a.messages))
+	copy(out, a.messages)
 	return out
 }
 
 // 流式生成
 func (a *AIHelper) StreamResponse(username string,
-	ctx context.Context, cb ai.StreamCallback,
+	ctx context.Context, cb StreamCallback,
 	userQuestion string) (*model.Message, error) {
 
 	a.AddMessage(userQuestion, username, true, true)
 	a.muRW.RLock()
-	message := ut
+	messages := utils.ConvertToSchemaMessages(a.messages)
+	a.muRW.RUnlock()
+	content, err := a.model.StreamResponse(ctx, messages, cb)
+	if err != nil {
+		logger.L().Error("AI model StreamResponse failed",
+			zap.Error(err),
+			zap.String("session_id", a.SessionID),
+			zap.String("username", username))
+		return nil, err
+	}
+
+	//构造保存完整AI回复
+
+	modelMsg := &model.Message{
+		SessionID: a.SessionID,
+		Content:   content,
+		UserName:  username,
+		IsUser:    false,
+	}
+	a.AddMessage(content, username, false, true)
+
+	return modelMsg, nil
+
+}
+
+// 获取当前使用的Ai模型
+func (a *AIHelper) GetModelType() string {
+	return a.model.GetModelType()
 }

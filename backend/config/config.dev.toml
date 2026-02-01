@@ -29,11 +29,6 @@ host = "smtp.qq.com"
 port = 465
 is_ssl = true
 
-[openai]
-api_key = "sk-4960008ac5fe4f468e614c107bcecc0f"
-base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-model = "qwen-plus"
-
 [redis]
 host = "127.0.0.1"
 port = 6379
