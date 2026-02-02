@@ -1,4 +1,4 @@
-package rabbitmq // 包名 rabbitmq
+package rabbitmq // Package rabbitmq 包名 rabbitmq
 
 import (
 	"fmt"
@@ -74,7 +74,7 @@ type RabbitMQ struct {
 	queueName string
 }
 
-// New 创建基础实例
+// NewRabbitMQ New 创建基础实例
 func NewRabbitMQ(exchange, key string) *RabbitMQ {
 	return &RabbitMQ{
 		Exchange:  exchange,

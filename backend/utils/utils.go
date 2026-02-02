@@ -36,7 +36,7 @@ func GenerateUUID() string {
 	return uuid.New().String()
 }
 
-// 将schema消息转换为数据库存储的格式
+// ConvertToModelMessage 将schema消息转换为数据库存储的格式
 func ConvertToModelMessage(sessionID string, username string, msg *schema.Message) *model.Message {
 	return &model.Message{
 		SessionID: sessionID,
@@ -45,7 +45,7 @@ func ConvertToModelMessage(sessionID string, username string, msg *schema.Messag
 	}
 }
 
-// 将数据库存储的格式转换为schema
+// ConvertToSchemaMessages 将数据库存储的格式转换为schema
 func ConvertToSchemaMessages(msgs []*model.Message) []*schema.Message {
 	schemaMsgs := make([]*schema.Message, 0, len(msgs))
 	for _, m := range msgs {

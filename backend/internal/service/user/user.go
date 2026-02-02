@@ -64,14 +64,14 @@ func Register(email, password, captcha_ string) (string, code.Code) {
 }
 
 func SendCaptcha(email_ string) code.Code {
-	send_code := utils.GetRandomNumbers(6)
+	sendCode := utils.GetRandomNumbers(6)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := captcha.SetCaptchaForEmail(ctx, email_, send_code); err != nil {
+	if err := captcha.SetCaptchaForEmail(ctx, email_, sendCode); err != nil {
 		return code.CodeServerBusy
 	}
 
-	if err := myemail.SendCaptcha(email_, send_code, myemail.CodeMsg); err != nil {
+	if err := myemail.SendCaptcha(email_, sendCode, myemail.CodeMsg); err != nil {
 		return code.CodeServerBusy
 	}
 	return code.CodeSuccess

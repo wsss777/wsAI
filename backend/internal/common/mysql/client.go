@@ -1,4 +1,4 @@
-package mysql // 包名 mysql
+package mysql // Package mysql 包名 mysql
 
 import (
 	"fmt"

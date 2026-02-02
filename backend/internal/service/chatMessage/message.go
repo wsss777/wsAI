@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// MessageMQParam 定义投递到 RabbitMQ 的消息参数结构
+// MessageMQPara MessageMQParam 定义投递到 RabbitMQ 的消息参数结构
 type MessageMQPara struct {
 	SessionID string `json:"session_id"`
 	Content   string `json:"content"`
@@ -19,7 +19,7 @@ type MessageMQPara struct {
 	IsUser    bool   `json:"is_user"`
 }
 
-// GenerateMessageMQParam 生成要发送到 MQ 的 JSON 字节
+// GenerateMessageMQPara GenerateMessageMQParam 生成要发送到 MQ 的 JSON 字节
 func GenerateMessageMQPara(sessionID string, content string, username string, isUser bool) ([]byte, error) {
 	para := MessageMQPara{
 		SessionID: sessionID,

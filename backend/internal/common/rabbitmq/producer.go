@@ -1,4 +1,4 @@
-package rabbitmq // 同包
+package rabbitmq // Package rabbitmq 同包
 
 import (
 	"fmt"

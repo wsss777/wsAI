@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// 一个会话绑定一个AIHelper
+// AIHelper 一个会话绑定一个AIHelper
 type AIHelper struct {
 	model     AIModel
 	messages  []*model.Message
@@ -74,7 +74,7 @@ func (a *AIHelper) AddMessage(Content string, UserName string, IsUser bool, Save
 	}
 }
 
-// SaveMessage 保存消息到数据库（通过回调函数避免循环依赖）
+// SetSaveFunc SaveMessage 保存消息到数据库（通过回调函数避免循环依赖）
 // 通过传入func，自己调用外部的保存函数，即可支持同步异步等多种策略
 func (a *AIHelper) SetSaveFunc(saveFunc func(*model.Message) (*model.Message, error)) {
 	a.saveFunc = saveFunc
