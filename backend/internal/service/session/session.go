@@ -90,7 +90,7 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 
 	manager := ai.GetGlobalManager()
 	config := map[string]interface{}{
-		"apiKey": "api-ket", //TODO
+		"apiKey": "api-key", //TODO
 	}
 	helper, err := manager.GetOrCreateAIHelper(userName, sessionID, modelType, config)
 	if err != nil {
