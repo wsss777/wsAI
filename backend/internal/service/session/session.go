@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"net/http"
 	"strings"
 	"wsai/backend/internal/ai"
 	"wsai/backend/internal/common/code"
@@ -77,4 +78,63 @@ func CreateStreamSessionOnly(username string, userQuestion string) (string, code
 
 	}
 	return createdSession.ID, code.CodeSuccess
+}
+
+func StreamMessageToExistingSession(userName string, sessionID string, userQuestion string, modelType string, writer http.ResponseWriter) code.Code {
+	//确保writer 支持flush
+	flusher, ok := writer.(http.Flusher)
+	if !ok {
+		logger.L().Warn("streamMessageToExistingSession http.Flusher error")
+		return code.CodeServerBusy
+	}
+
+	manager := ai.GetGlobalManager()
+	config := map[string]interface{}{
+		"apiKey": "api-ket", //TODO
+	}
+	helper, err := manager.GetOrCreateAIHelper(userName, sessionID, modelType, config)
+	if err != nil {
+		logger.L().Error("manager.GetOrCreateAIHelper error , failed to create AI helper",
+			zap.String("username", userName),
+			zap.String("sessionId", sessionID),
+			zap.String("modelType", modelType),
+			zap.Error(err))
+		return code.AIModelFail
+	}
+
+	cb := func(msg string) {
+		zap.L().Debug("sending SSE chunk",
+			zap.Int("length", len(msg)),
+		)
+		_, werr := writer.Write([]byte("data: " + msg + "\n\n"))
+		if werr != nil {
+			logger.L().Warn("SSE write error",
+				zap.Error(werr))
+		}
+		return
+	}
+	flusher.Flush()
+	zap.L().Debug("SSE message to existing session")
+
+	_, err_ := helper.StreamResponse(userName, ctx, cb, userQuestion)
+	if err_ != nil {
+		zap.L().Error("StreamMessageToExistingSession StreamResponse error",
+			zap.String("username", userName),
+			zap.String("sessionId", sessionID),
+			zap.String("modelType", modelType),
+			zap.Error(err_))
+		return code.AIModelFail
+	}
+
+	_, err = writer.Write([]byte("data: [DONE]\n\n"))
+	if err != nil {
+		logger.L().Warn("StreamMessageToExistingSession write DONE error",
+			zap.Error(err))
+		return code.AIModelFail
+	}
+
+	flusher.Flush()
+
+	return code.CodeSuccess
+
 }
