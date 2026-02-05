@@ -20,6 +20,6 @@ func AIRouter(r *gin.RouterGroup) {
 	{
 		sessionGroup.POST("/messages/stream", session.SendMessageStream)
 
-		sessionGroup.POST("/messages", session.GetMessageHistory)
+		sessionGroup.GET("/messages", session.GetMessageHistory)
 	}
 }

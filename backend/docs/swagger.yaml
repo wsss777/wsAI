@@ -1,6 +1,104 @@
 basePath: /
 definitions:
-  code.Code:
+  internal_handler_session.CreateSessionAndSendFirstMessageRequest:
+    properties:
+      modelType:
+        type: string
+      question:
+        type: string
+    required:
+    - modelType
+    - question
+    type: object
+  internal_handler_session.GetMeaasgeHistoryResponse:
+    properties:
+      status_code:
+        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+      status_msg:
+        type: string
+    type: object
+  internal_handler_session.GetUserSessionsResponse:
+    properties:
+      sessions:
+        items:
+          $ref: '#/definitions/wsai_backend_internal_model.SessionInfo'
+        type: array
+      status_code:
+        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+      status_msg:
+        type: string
+    type: object
+  internal_handler_session.SendMessageStreamRequest:
+    properties:
+      modelType:
+        type: string
+      question:
+        type: string
+      sessionId:
+        type: string
+    required:
+    - modelType
+    - question
+    - sessionId
+    type: object
+  internal_handler_user.CaptchaRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  internal_handler_user.CaptchaResponse:
+    properties:
+      status_code:
+        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+      status_msg:
+        type: string
+    type: object
+  internal_handler_user.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  internal_handler_user.LoginResponse:
+    properties:
+      status_code:
+        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+      status_msg:
+        type: string
+      token:
+        type: string
+    type: object
+  internal_handler_user.RegisterRequest:
+    properties:
+      captcha:
+        type: string
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    type: object
+  internal_handler_user.RegisterResponse:
+    properties:
+      status_code:
+        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+      status_msg:
+        type: string
+      token:
+        type: string
+    type: object
+  wsai_backend_internal_common.Response:
+    properties:
+      status_code:
+        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+      status_msg:
+        type: string
+    type: object
+  wsai_backend_internal_common_code.Code:
     enum:
     - 1000
     - 2001
@@ -37,61 +135,11 @@ definitions:
     - AIModelNotFind
     - AIModelCannotOpen
     - AIModelFail
-  common.Response:
+  wsai_backend_internal_model.SessionInfo:
     properties:
-      status_code:
-        $ref: '#/definitions/code.Code'
-      status_msg:
+      name:
         type: string
-    type: object
-  user.CaptchaRequest:
-    properties:
-      email:
-        type: string
-    required:
-    - email
-    type: object
-  user.CaptchaResponse:
-    properties:
-      status_code:
-        $ref: '#/definitions/code.Code'
-      status_msg:
-        type: string
-    type: object
-  user.LoginRequest:
-    properties:
-      password:
-        type: string
-      username:
-        type: string
-    type: object
-  user.LoginResponse:
-    properties:
-      status_code:
-        $ref: '#/definitions/code.Code'
-      status_msg:
-        type: string
-      token:
-        type: string
-    type: object
-  user.RegisterRequest:
-    properties:
-      captcha:
-        type: string
-      email:
-        type: string
-      password:
-        type: string
-    required:
-    - email
-    type: object
-  user.RegisterResponse:
-    properties:
-      status_code:
-        $ref: '#/definitions/code.Code'
-      status_msg:
-        type: string
-      token:
+      sessionId:
         type: string
     type: object
 host: localhost:9091
@@ -101,6 +149,99 @@ info:
   title: WsAI Backend API
   version: "1.0"
 paths:
+  /api/v1/AI/chatMessage/sessions:
+    get:
+      consumes:
+      - application/json
+      description: 返回当前登录用户创建的所有聊天会话（通常按创建时间降序）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler_session.GetUserSessionsResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: 获取当前用户的所有会话列表
+      tags:
+      - 会话管理
+  /api/v1/AI/chatMessage/sessions/{session_id}/messages:
+    get:
+      consumes:
+      - application/json
+      description: 返回指定会话 ID 下的所有消息记录（按时间升序）
+      parameters:
+      - description: 会话ID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler_session.GetMeaasgeHistoryResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: 获取指定会话的全部历史消息
+      tags:
+      - 会话管理
+  /api/v1/AI/chatMessage/sessions/{session_id}/messages/stream:
+    post:
+      consumes:
+      - application/json
+      description: 向指定的会话 ID 发送一条新消息，并使用 SSE 流式返回 AI 回答
+      parameters:
+      - description: 会话ID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_session.SendMessageStreamRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE error 事件
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 向已有会话追加消息（SSE 流式返回）
+      tags:
+      - 会话管理
+  /api/v1/AI/chatMessage/sessions/stream:
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新会话，同时把用户的第一个问题发给 AI，使用 SSE 流式返回
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_session.CreateSessionAndSendFirstMessageRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE error 事件
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: 创建新会话 + 发送第一个问题（SSE 流式返回）
+      tags:
+      - 会话管理
   /api/v1/user/captcha:
     post:
       consumes:
@@ -112,22 +253,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/user.CaptchaRequest'
+          $ref: '#/definitions/internal_handler_user.CaptchaRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 验证码发送成功
           schema:
-            $ref: '#/definitions/user.CaptchaResponse'
+            $ref: '#/definitions/internal_handler_user.CaptchaResponse'
         "400":
           description: 邮箱格式错误
           schema:
-            $ref: '#/definitions/common.Response'
+            $ref: '#/definitions/wsai_backend_internal_common.Response'
         "429":
           description: 发送过于频繁
           schema:
-            $ref: '#/definitions/common.Response'
+            $ref: '#/definitions/wsai_backend_internal_common.Response'
       summary: 发送邮箱验证码
       tags:
       - 用户认证
@@ -142,22 +283,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/user.LoginRequest'
+          $ref: '#/definitions/internal_handler_user.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 登录成功，返回 token
           schema:
-            $ref: '#/definitions/user.LoginResponse'
+            $ref: '#/definitions/internal_handler_user.LoginResponse'
         "400":
           description: 参数错误
           schema:
-            $ref: '#/definitions/common.Response'
+            $ref: '#/definitions/wsai_backend_internal_common.Response'
         "401":
           description: 用户名或密码错误
           schema:
-            $ref: '#/definitions/common.Response'
+            $ref: '#/definitions/wsai_backend_internal_common.Response'
       summary: 用户登录
       tags:
       - 用户认证
@@ -172,22 +313,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/user.RegisterRequest'
+          $ref: '#/definitions/internal_handler_user.RegisterRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 注册成功，返回 token
           schema:
-            $ref: '#/definitions/user.RegisterResponse'
+            $ref: '#/definitions/internal_handler_user.RegisterResponse'
         "400":
           description: 参数错误或验证码错误
           schema:
-            $ref: '#/definitions/common.Response'
+            $ref: '#/definitions/wsai_backend_internal_common.Response'
         "409":
           description: 用户已存在
           schema:
-            $ref: '#/definitions/common.Response'
+            $ref: '#/definitions/wsai_backend_internal_common.Response'
       summary: 用户注册
       tags:
       - 用户认证

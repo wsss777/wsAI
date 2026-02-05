@@ -5,7 +5,6 @@ import (
 	"sync"
 	"wsai/backend/config"
 	"wsai/backend/internal/logger"
-	"wsai/backend/internal/service/chatMessage"
 
 	"github.com/streadway/amqp"
 	"go.uber.org/zap"
@@ -19,8 +18,10 @@ var connMu sync.Mutex
 var once sync.Once
 
 func InitRabbitMQ() {
+	//创建MQ并启动消费者
+	//不同队列共用一个连接，可以保持不同队列消费消息的顺序
 	RMQMessage = NewWorkRabbitMQ("Message")
-	go RMQMessage.ConsumeWork(chatMessage.ProcessMessageDelivery)
+	go RMQMessage.ConsumeWork(ProcessMessageDelivery)
 }
 func DestroyRabbitMQ() {
 	if RMQMessage != nil {
@@ -96,6 +97,7 @@ func (r *RabbitMQ) Destroy() {
 	}
 }
 
+// NewWorkRabbitMQ 创建Work模式的RabbitMQ实例
 func NewWorkRabbitMQ(queue string) *RabbitMQ {
 	rabbitmq := NewRabbitMQ("", queue)
 	rabbitmq.queueName = queue

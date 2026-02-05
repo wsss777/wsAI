@@ -6,7 +6,6 @@ import (
 	"wsai/backend/internal/common/rabbitmq"
 	"wsai/backend/internal/logger"
 	"wsai/backend/internal/model"
-	"wsai/backend/internal/service/chatMessage"
 	"wsai/backend/utils"
 
 	"go.uber.org/zap"
@@ -27,7 +26,7 @@ func NewAIHelper(model_ AIModel, SessionID string) *AIHelper {
 		model:    model_,
 		messages: make([]*model.Message, 0, 20),
 		saveFunc: func(msg *model.Message) (*model.Message, error) {
-			data, genErr := chatMessage.GenerateMessageMQPara(msg.SessionID, msg.Content, msg.UserName, msg.IsUser)
+			data, genErr := rabbitmq.GenerateMessageMQPara(msg.SessionID, msg.Content, msg.UserName, msg.IsUser)
 			if genErr != nil {
 				logger.L().Error("Generate RabbitMQ message param failed",
 					zap.Error(genErr),

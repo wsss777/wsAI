@@ -44,7 +44,15 @@ type (
 )
 
 // GetUserSessions 获取当前用户的所有会话列表
-// GET /chatMessage/sessions
+// @Summary      获取当前用户的所有会话列表
+// @Description  返回当前登录用户创建的所有聊天会话（通常按创建时间降序）
+// @Tags         会话管理
+// @Accept       json
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Success      200   {object}  session.GetUserSessionsResponse
+// @Failure      200   {object}  session.GetUserSessionsResponse   // 注意：这里写 200，因为统一返回 200
+// @Router       /api/v1/AI/chatMessage/sessions [get]
 func GetUserSessionsByUsername(c *gin.Context) {
 	res := new(GetUserSessionsResponse)
 	username_ := c.GetString("username")
@@ -59,8 +67,17 @@ func GetUserSessionsByUsername(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
-// CreateStreamSessionAndSendFirstMessage 创建新会话并流式输出第一条 AI 回复
-// POST /chatMessage/sessions/stream
+// CreateStreamSessionAndSendFirstMessage 创建新会话并流式输出 AI 的第一条回复
+// @Summary      创建新会话 + 发送第一个问题（SSE 流式返回）
+// @Description  创建一个新会话，同时把用户的第一个问题发给 AI，使用 SSE 流式返回
+// @Tags         会话管理
+// @Accept       json
+// @Produce      text/event-stream
+// @Param        body  body  session.CreateSessionAndSendFirstMessageRequest  true  "请求参数"
+// @Security     ApiKeyAuth
+// @Success      200   {string}  string   "SSE 事件流"
+// @Failure      200   {string}  string   "SSE error 事件"
+// @Router       /api/v1/AI/chatMessage/sessions/stream [post]
 func CreateStreamSessionAndSendFirstMessage(c *gin.Context) {
 	req := new(CreateSessionAndSendFirstMessageRequest)
 	userName := c.GetString("username")
@@ -95,8 +112,18 @@ func CreateStreamSessionAndSendFirstMessage(c *gin.Context) {
 
 }
 
-// SendMessageStream 向已有会话发送消息并流式返回
-// POST /chatMessage/sessions/:session_id/messages/stream
+// SendMessageStream 向已有会话发送消息并流式返回 AI 回复
+// @Summary      向已有会话追加消息（SSE 流式返回）
+// @Description  向指定的会话 ID 发送一条新消息，并使用 SSE 流式返回 AI 回答
+// @Tags         会话管理
+// @Accept       json
+// @Produce      text/event-stream
+// @Param        session_id  path   string  true   "会话ID"
+// @Param        body        body   session.SendMessageStreamRequest  true  "请求参数"
+// @Security     ApiKeyAuth
+// @Success      200   {string}  string   "SSE 事件流"
+// @Failure      200   {string}  string   "SSE error 事件"
+// @Router       /api/v1/AI/chatMessage/sessions/{session_id}/messages/stream [post]
 func SendMessageStream(c *gin.Context) {
 	req := new(SendMessageStreamRequest)
 	userName := c.GetString("username")
@@ -115,21 +142,67 @@ func SendMessageStream(c *gin.Context) {
 	}
 }
 
-// GetMessageHistory 获取指定会话的历史消息
-// GET /chatMessage/sessions/:session_id/messages
+// // GetMessageHistory 获取指定会话的历史消息
+// // @Summary      获取指定会话的聊天历史
+// // @Description  返回指定会话ID下的所有用户和AI消息历史
+// // @Tags         ChatSession
+// // @Accept       json
+// // @Produce      json
+// // @Param        session_id  path   string  true  "会话ID"
+// // @Security     ApiKeyAuth
+// // @Success      200   {object}  session.GetMeaasgeHistoryResponse
+// // @Failure      500   {object}  common.Response
+// // @Router       /chatMessage/sessions/:session_id/messages [get]
+//
+//	func GetMessageHistory(c *gin.Context) {
+//		req := new(GetMeaasgeHistoryRequest)
+//		res := new(GetMeaasgeHistoryResponse)
+//		userName := c.GetString("username")
+//
+//		if err := c.ShouldBindJSON(req); err != nil {
+//			c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidParams))
+//			return
+//		}
+//		history, code_ := session.GetChatHistory(userName, req.SessionID)
+//		if code_ != code.CodeSuccess {
+//			c.JSON(http.StatusOK, res.CodeOf(code_))
+//			return
+//		}
+//		res.Success()
+//		res.history = history
+//		c.JSON(http.StatusOK, res)
+//	}
+//
+// GetMessageHistory 获取指定会话的聊天历史
+// @Summary      获取指定会话的全部历史消息
+// @Description  返回指定会话 ID 下的所有消息记录（按时间升序）
+// @Tags         会话管理
+// @Accept       json
+// @Produce      json
+// @Param        session_id  path   string  true   "会话ID"
+// @Security     ApiKeyAuth
+// @Success      200   {object}  session.GetMeaasgeHistoryResponse
+// @Failure      200   {object}  session.GetMeaasgeHistoryResponse
+// @Router       /api/v1/AI/chatMessage/sessions/{session_id}/messages [get]
 func GetMessageHistory(c *gin.Context) {
-	req := new(GetMeaasgeHistoryRequest)
-	res := new(GetMeaasgeHistoryResponse)
 	userName := c.GetString("username")
-	if err := c.ShouldBindJSON(req); err != nil {
+	sessionID := c.Param("session_id") // 直接从路径参数取 session_id
+
+	// 简单校验 sessionID 是否为空
+	if sessionID == "" {
+		res := new(GetMeaasgeHistoryResponse)
 		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidParams))
 		return
 	}
-	history, code_ := session.GetChatHistory(userName, req.SessionID)
+
+	history, code_ := session.GetChatHistory(userName, sessionID)
 	if code_ != code.CodeSuccess {
-		c.JSON(http.StatusOK, res.CodeOf(code_))
+		res := new(GetMeaasgeHistoryResponse)
+		c.JSON(http.StatusOK, res.CodeOf(code_)) // 保持你原有的风格：200 + error code
 		return
 	}
+
+	res := new(GetMeaasgeHistoryResponse)
 	res.Success()
 	res.history = history
 	c.JSON(http.StatusOK, res)

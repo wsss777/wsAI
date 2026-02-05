@@ -90,7 +90,7 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 
 	manager := ai.GetGlobalManager()
 	config := map[string]interface{}{
-		"apiKey": "api-key", //TODO
+		"apiKey": "api-key",
 	}
 	helper, err := manager.GetOrCreateAIHelper(userName, sessionID, modelType, config)
 	if err != nil {
@@ -137,4 +137,27 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 
 	return code.CodeSuccess
 
+}
+
+func ChatStreamSend(userName string, sessionID string, userQuestion string, modelType string, writer http.ResponseWriter) code.Code {
+	return StreamMessageToExistingSession(userName, sessionID, userQuestion, modelType, writer)
+}
+
+func GetChatHistory(userName string, sessionID string) ([]model.History, code.Code) {
+	manager := ai.GetGlobalManager()
+	helper, exists := manager.GetAIHelper(userName, sessionID)
+	if !exists {
+		return nil, code.CodeServerBusy
+	}
+	messages := helper.GetAllMessage()
+	history := make([]model.History, 0, len(messages))
+
+	for i, msg := range messages {
+		isUser := i%2 == 0
+		history = append(history, model.History{
+			IsUser:  isUser,
+			Content: msg.Content,
+		})
+	}
+	return history, code.CodeSuccess
 }

@@ -49,7 +49,7 @@ func (m *AIHelperManager) GetOrCreateAIHelper(username string, sessionID string,
 }
 
 // GetHelper 获取指定用户指定会话的AIHelper
-func (m *AIHelperManager) GetHelper(username string, sessionID string) (*AIHelper, bool) {
+func (m *AIHelperManager) GetAIHelper(username string, sessionID string) (*AIHelper, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	userHelpers, exists := m.helpers[username]
