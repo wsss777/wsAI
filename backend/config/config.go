@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -67,6 +68,12 @@ type Config struct {
 
 func InitConfig() {
 	once.Do(func() {
+		if err := godotenv.Load(); err != nil {
+			log.Printf("加载 .env 文件失败: %v\n", err)
+		} else {
+			log.Println("成功加载 .env 文件")
+		}
+
 		v := viper.New()
 		v.SetConfigType("toml")
 		// 自动选择配置文件
