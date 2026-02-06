@@ -31,19 +31,9 @@ func GetUserSessionByUsername(username string) ([]model.SessionInfo, error) {
 				zap.String("username", username),
 				zap.String("sessionId", sessionId),
 				zap.Error(err))
-
-			title = sessionId
-			if len(title) > 12 {
-				title = sessionId[:8] + "..."
-			}
-
 			if title == "" {
 				title = "新会话"
 			}
-		}
-
-		if len(title) > 12 {
-			title = sessionId[:8] + "..."
 		}
 		SessionInfos = append(SessionInfos, model.SessionInfo{
 			SessionID: sessionId,

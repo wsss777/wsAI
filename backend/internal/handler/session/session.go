@@ -38,7 +38,7 @@ type (
 		SessionID string `json:"sessionId,omitempty" binding:"required"`
 	}
 	GetMeaasgeHistoryResponse struct {
-		history []model.History `json:"history"`
+		History []model.History `json:"history"`
 		common.Response
 	}
 )
@@ -204,7 +204,7 @@ func GetMessageHistory(c *gin.Context) {
 
 	res := new(GetMeaasgeHistoryResponse)
 	res.Success()
-	res.history = history
+	res.History = history
 	c.JSON(http.StatusOK, res)
 }
 
