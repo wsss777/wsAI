@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"wsai/backend/internal/ai"
@@ -16,35 +17,57 @@ import (
 
 var ctx = context.Background()
 
-func GetUserSessionByUsername(username string) ([]model.SessionInfo, error) {
-	manager := ai.GetGlobalManager()
-	Sessions := manager.GetUserSessions(username)
-	if len(Sessions) == 0 {
+//	func GetUserSessionByUsername(username string) ([]model.SessionInfo, error) {
+//		manager := ai.GetGlobalManager()
+//		Sessions := manager.GetUserSessions(username)
+//		if len(Sessions) == 0 {
+//			return []model.SessionInfo{}, nil
+//		}
+//		SessionInfos := make([]model.SessionInfo, 0, len(Sessions))
+//
+//		for _, sessionId := range Sessions {
+//			title, err := session.GetTitleBySessionID(sessionId)
+//			if err != nil {
+//				logger.L().Warn("session.GetTitleBySessionID error",
+//					zap.String("username", username),
+//					zap.String("sessionId", sessionId),
+//					zap.Error(err))
+//				if title == "" {
+//					title = "新会话"
+//				}
+//			}
+//			SessionInfos = append(SessionInfos, model.SessionInfo{
+//				SessionID: sessionId,
+//				Title:     title,
+//			})
+//
+//		}
+//		return SessionInfos, nil
+//
+// }
+func GetUserSessionsByUsername(username string) ([]model.SessionInfo, error) {
+	if username == "" {
+		return nil, errors.New("username is required")
+	}
+	sessions, err := session.FindUserSessions(username)
+	if err != nil {
+		return nil, err
+	}
+	// 没有数据时返回空数组
+	if len(sessions) == 0 {
 		return []model.SessionInfo{}, nil
 	}
-	SessionInfos := make([]model.SessionInfo, 0, len(Sessions))
+	infos := make([]model.SessionInfo, 0, len(sessions))
 
-	for _, sessionId := range Sessions {
-		title, err := session.GetTitleBySessionID(sessionId)
-		if err != nil {
-			logger.L().Warn("session.GetTitleBySessionID error",
-				zap.String("username", username),
-				zap.String("sessionId", sessionId),
-				zap.Error(err))
-			if title == "" {
-				title = "新会话"
-			}
-		}
-		SessionInfos = append(SessionInfos, model.SessionInfo{
-			SessionID: sessionId,
+	for _, sess := range sessions {
+		title := sess.Title
+		infos = append(infos, model.SessionInfo{
+			SessionID: sess.ID,
 			Title:     title,
 		})
-
 	}
-	return SessionInfos, nil
-
+	return infos, nil
 }
-
 func CreateStreamSessionOnly(username string, userQuestion string) (string, code.Code) {
 	question := strings.TrimSpace(userQuestion)
 	if question == "" {

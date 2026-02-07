@@ -30,3 +30,10 @@ func GetSessionByID(sessionID string) (*model.Session, error) {
 	err := mysql.DB.Where("id = ?", sessionID).First(&session).Error
 	return &session, err
 }
+func FindUserSessions(userID string) ([]*model.Session, error) {
+	var sessions []*model.Session
+	err := mysql.DB.Select("id", "title").
+		Where("user_name = ? AND deleted_at IS NULL", userID).
+		Find(&sessions).Error
+	return sessions, err
+}

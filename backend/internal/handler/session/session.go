@@ -57,7 +57,7 @@ func GetUserSessionsByUsername(c *gin.Context) {
 	res := new(GetUserSessionsResponse)
 	username_ := c.GetString("username")
 
-	userSessions, err := session.GetUserSessionByUsername(username_)
+	userSessions, err := session.GetUserSessionsByUsername(username_)
 	if err != nil {
 		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
 		return
