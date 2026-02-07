@@ -32,7 +32,7 @@ type ImageRecognizer struct {
 
 const (
 	defaultInputName  = "data"
-	dafaultOutputName = "mobilenetv20_output_flatten0_reshape0"
+	defaultOutputName = "mobilenetv20_output_flatten0_reshape0"
 )
 
 var (
