@@ -5,6 +5,7 @@ import (
 	"wsai/backend/internal/common"
 	"wsai/backend/internal/common/code"
 	"wsai/backend/internal/logger"
+	"wsai/backend/internal/service/image"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
