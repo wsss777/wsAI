@@ -165,6 +165,38 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/image/recognize": {
+            "post": {
+                "description": "上传单张图片，服务端返回识别出的主要类别名称\n\n成功时：code=0，class_name 会有值\n失败时：code 为错误码（1001 参数错误 / 1002 服务器忙等），class_name 为空",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "图像识别"
+                ],
+                "summary": "上传图片进行分类/识别",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "要识别的图片文件（支持常见图片格式：jpg,png,gif等）",
+                        "name": "image",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "业务错误（code≠0）也返回 200，这是项目规范",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_image.RecognizeImageResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/user/captcha": {
             "post": {
                 "description": "向指定邮箱发送注册验证码",
@@ -305,6 +337,20 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "internal_handler_image.RecognizeImageResponse": {
+            "type": "object",
+            "properties": {
+                "class_name": {
+                    "type": "string"
+                },
+                "status_code": {
+                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
+                },
+                "status_msg": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_handler_session.CreateSessionAndSendFirstMessageRequest": {
             "type": "object",
             "required": [
@@ -323,6 +369,12 @@ const docTemplate = `{
         "internal_handler_session.GetMeaasgeHistoryResponse": {
             "type": "object",
             "properties": {
+                "history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsai_backend_internal_model.History"
+                    }
+                },
                 "status_code": {
                     "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
                 },
@@ -496,13 +548,24 @@ const docTemplate = `{
                 "AIModelFail"
             ]
         },
+        "wsai_backend_internal_model.History": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "is_user": {
+                    "type": "boolean"
+                }
+            }
+        },
         "wsai_backend_internal_model.SessionInfo": {
             "type": "object",
             "properties": {
-                "name": {
+                "sessionId": {
                     "type": "string"
                 },
-                "sessionId": {
+                "title": {
                     "type": "string"
                 }
             }

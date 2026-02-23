@@ -20,7 +20,6 @@ func InitRouter() *gin.Engine {
 	{
 		ImageGroup := enterRouter.Group("/image")
 		ImageRouter(ImageGroup)
-		ImageRouter(ImageGroup)
 	}
 
 	return r

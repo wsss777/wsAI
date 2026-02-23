@@ -1,5 +1,14 @@
 basePath: /
 definitions:
+  internal_handler_image.RecognizeImageResponse:
+    properties:
+      class_name:
+        type: string
+      status_code:
+        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+      status_msg:
+        type: string
+    type: object
   internal_handler_session.CreateSessionAndSendFirstMessageRequest:
     properties:
       modelType:
@@ -12,6 +21,10 @@ definitions:
     type: object
   internal_handler_session.GetMeaasgeHistoryResponse:
     properties:
+      history:
+        items:
+          $ref: '#/definitions/wsai_backend_internal_model.History'
+        type: array
       status_code:
         $ref: '#/definitions/wsai_backend_internal_common_code.Code'
       status_msg:
@@ -135,11 +148,18 @@ definitions:
     - AIModelNotFind
     - AIModelCannotOpen
     - AIModelFail
+  wsai_backend_internal_model.History:
+    properties:
+      content:
+        type: string
+      is_user:
+        type: boolean
+    type: object
   wsai_backend_internal_model.SessionInfo:
     properties:
-      name:
-        type: string
       sessionId:
+        type: string
+      title:
         type: string
     type: object
 host: localhost:9091
@@ -242,6 +262,31 @@ paths:
       summary: 创建新会话 + 发送第一个问题（SSE 流式返回）
       tags:
       - 会话管理
+  /api/v1/image/recognize:
+    post:
+      consumes:
+      - multipart/form-data
+      description: |-
+        上传单张图片，服务端返回识别出的主要类别名称
+
+        成功时：code=0，class_name 会有值
+        失败时：code 为错误码（1001 参数错误 / 1002 服务器忙等），class_name 为空
+      parameters:
+      - description: 要识别的图片文件（支持常见图片格式：jpg,png,gif等）
+        in: formData
+        name: image
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误（code≠0）也返回 200，这是项目规范
+          schema:
+            $ref: '#/definitions/internal_handler_image.RecognizeImageResponse'
+      summary: 上传图片进行分类/识别
+      tags:
+      - 图像识别
   /api/v1/user/captcha:
     post:
       consumes:

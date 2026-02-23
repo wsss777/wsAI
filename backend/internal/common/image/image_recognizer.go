@@ -8,8 +8,10 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"wsai/backend/internal/logger"
 
@@ -38,6 +40,25 @@ var (
 	initOnce sync.Once
 	initErr  error
 )
+
+func init() {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	// 获取当前工作目录
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("无法获取当前工作目录: %v", err)
+	}
+
+	dllPath := filepath.Join(cwd, "/backend/", "onnxruntime.dll")
+
+	if _, err := os.Stat(dllPath); os.IsNotExist(err) {
+		log.Fatalf("onnxruntime.dll 文件不存在，路径: %s\n请检查文件位置", dllPath)
+	}
+	ort.SetSharedLibraryPath(dllPath)
+	log.Printf("[ORT INIT] 成功设置 ONNX Runtime DLL 路径: %s", dllPath)
+}
 
 func NewImageRecognizer(modelPath, labelPath string, inputH, inputW int) (*ImageRecognizer, error) {
 	initOnce.Do(func() {
