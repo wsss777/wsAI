@@ -18,13 +18,18 @@ func RecognizeImage(file *multipart.FileHeader) (string, error) {
 		return "", err
 	}
 
-	// 从 cwd 向上两级到 backend 根目录（因为 cwd 通常是 cmd/server）
+	// 从 cwd 向上两级到 backend 根目录
 	rootDir := filepath.Join(cwd, "..", "..")
 
-	// 模型和标签文件路径（假设放在 backend/data/ 下）
+	// 模型和标签文件路径
 	modelPath := filepath.Join(rootDir, "data", "models", "mobilenetv2-7.onnx")
 	labelPath := filepath.Join(rootDir, "data", "imagenet_classes.txt")
 	inputH, inputW := 224, 224
+
+	logger.L().Info("图像识别服务启动",
+		zap.String("modelPath", modelPath),
+		zap.String("labelPath", labelPath),
+		zap.String("rootDir", rootDir))
 
 	recognizer, err := image.NewImageRecognizer(modelPath, labelPath, inputH, inputW)
 	if err != nil {

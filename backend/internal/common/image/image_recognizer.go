@@ -48,16 +48,31 @@ func init() {
 	// 获取当前工作目录
 	cwd, err := os.Getwd()
 	if err != nil {
-		log.Fatalf("无法获取当前工作目录: %v", err)
+		log.Printf("无法获取当前工作目录: %v，将尝试使用系统路径", err)
+		return
 	}
 
-	dllPath := filepath.Join(cwd, "/backend/", "onnxruntime.dll")
-
-	if _, err := os.Stat(dllPath); os.IsNotExist(err) {
-		log.Fatalf("onnxruntime.dll 文件不存在，路径: %s\n请检查文件位置", dllPath)
+	// 尝试多个可能的 DLL 位置
+	dllPaths := []string{
+		filepath.Join(cwd, "/backend/", "onnxruntime.dll"),
+		filepath.Join(cwd, "onnxruntime.dll"),
+		filepath.Join(cwd, "backend", "data", "onnxruntime.dll"),
 	}
-	ort.SetSharedLibraryPath(dllPath)
-	log.Printf("[ORT INIT] 成功设置 ONNX Runtime DLL 路径: %s", dllPath)
+
+	var dllPath string
+	for _, path := range dllPaths {
+		if _, err := os.Stat(path); err == nil {
+			dllPath = path
+			break
+		}
+	}
+
+	if dllPath != "" {
+		ort.SetSharedLibraryPath(dllPath)
+		log.Printf("[ORT INIT] 成功设置 ONNX Runtime DLL 路径: %s", dllPath)
+	} else {
+		log.Printf("[ORT INIT] 未找到 onnxruntime.dll，将尝试使用系统路径")
+	}
 }
 
 func NewImageRecognizer(modelPath, labelPath string, inputH, inputW int) (*ImageRecognizer, error) {
@@ -82,8 +97,8 @@ func NewImageRecognizer(modelPath, labelPath string, inputH, inputW int) (*Image
 			zap.Int("inputW", inputW))
 		return nil, err
 	}
-	//预先创建输出Tensor
-	outShape := ort.NewShape(1, 100)
+	//预先创建输出Tensor (ImageNet标准是1000类)
+	outShape := ort.NewShape(1, 1000)
 	outTensor, err := ort.NewEmptyTensor[float32](outShape)
 	if err != nil {
 		inTensor.Destroy()
