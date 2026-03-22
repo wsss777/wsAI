@@ -1,6 +1,7 @@
 package router
 
 import (
+	"wsai/backend/internal/middleware/cors"
 	"wsai/backend/internal/middleware/jwt"
 
 	"github.com/gin-gonic/gin"
@@ -8,6 +9,7 @@ import (
 
 func InitRouter() *gin.Engine {
 	r := gin.Default()
+	r.Use(cors.Middleware())
 	enterRouter := r.Group("api/v1")
 	{
 		RegisterUserRouter(enterRouter.Group("/user"))

@@ -37,7 +37,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_session.GetUserSessionsResponse"
+                            "$ref": "#/definitions/backend_internal_handler_session.GetUserSessionsResponse"
                         }
                     }
                 }
@@ -68,7 +68,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_session.CreateSessionAndSendFirstMessageRequest"
+                            "$ref": "#/definitions/backend_internal_handler_session.CreateSessionAndSendFirstMessageRequest"
                         }
                     }
                 ],
@@ -113,7 +113,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_session.GetMeaasgeHistoryResponse"
+                            "$ref": "#/definitions/backend_internal_handler_session.GetMeaasgeHistoryResponse"
                         }
                     }
                 }
@@ -151,7 +151,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_session.SendMessageStreamRequest"
+                            "$ref": "#/definitions/backend_internal_handler_session.SendMessageStreamRequest"
                         }
                     }
                 ],
@@ -167,7 +167,7 @@ const docTemplate = `{
         },
         "/api/v1/image/recognize": {
             "post": {
-                "description": "上传单张图片，服务端返回识别出的主要类别名称\n\n成功时：code=0，class_name 会有值\n失败时：code 为错误码（1001 参数错误 / 1002 服务器忙等），class_name 为空",
+                "description": "上传单张图片，服务端返回识别出的主要类别名称。\n成功时返回 class_name，失败时通过 status_code 和 status_msg 返回错误信息。",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -181,7 +181,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "要识别的图片文件（支持常见图片格式：jpg,png,gif等）",
+                        "description": "要识别的图片文件",
                         "name": "image",
                         "in": "formData",
                         "required": true
@@ -189,9 +189,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "业务错误（code≠0）也返回 200，这是项目规范",
+                        "description": "业务错误时也统一返回 200，通过 status_code 区分",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_image.RecognizeImageResponse"
+                            "$ref": "#/definitions/backend_internal_handler_image.RecognizeImageResponse"
                         }
                     }
                 }
@@ -199,7 +199,7 @@ const docTemplate = `{
         },
         "/api/v1/user/captcha": {
             "post": {
-                "description": "向指定邮箱发送注册验证码",
+                "description": "向指定邮箱发送注册验证码。",
                 "consumes": [
                     "application/json"
                 ],
@@ -217,7 +217,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.CaptchaRequest"
+                            "$ref": "#/definitions/backend_internal_handler_user.CaptchaRequest"
                         }
                     }
                 ],
@@ -225,7 +225,7 @@ const docTemplate = `{
                     "200": {
                         "description": "验证码发送成功",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.CaptchaResponse"
+                            "$ref": "#/definitions/backend_internal_handler_user.CaptchaResponse"
                         }
                     },
                     "400": {
@@ -245,7 +245,7 @@ const docTemplate = `{
         },
         "/api/v1/user/login": {
             "post": {
-                "description": "根据用户名和密码登录，返回 JWT token",
+                "description": "根据用户名和密码登录，登录成功后返回 JWT Token。",
                 "consumes": [
                     "application/json"
                 ],
@@ -263,19 +263,19 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.LoginRequest"
+                            "$ref": "#/definitions/backend_internal_handler_user.LoginRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "登录成功，返回 token",
+                        "description": "登录成功，返回 Token",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.LoginResponse"
+                            "$ref": "#/definitions/backend_internal_handler_user.LoginResponse"
                         }
                     },
                     "400": {
-                        "description": "参数错误",
+                        "description": "请求参数错误",
                         "schema": {
                             "$ref": "#/definitions/wsai_backend_internal_common.Response"
                         }
@@ -289,9 +289,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/user/logout": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "将当前请求携带的 JWT Token 加入 Redis 黑名单，后续该 Token 将无法再访问受保护接口。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户认证"
+                ],
+                "summary": "用户退出登录",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer Token，例如：Bearer eyJhbGciOi...",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "退出登录成功",
+                        "schema": {
+                            "$ref": "#/definitions/backend_internal_handler_user.LogoutResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未携带有效 Token",
+                        "schema": {
+                            "$ref": "#/definitions/wsai_backend_internal_common.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务繁忙或 Redis 不可用",
+                        "schema": {
+                            "$ref": "#/definitions/wsai_backend_internal_common.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/user/users": {
             "post": {
-                "description": "通过邮箱、密码和验证码注册新用户，成功后直接返回登录 token",
+                "description": "通过邮箱、密码和验证码注册新用户，成功后直接返回 JWT Token。",
                 "consumes": [
                     "application/json"
                 ],
@@ -309,19 +358,19 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.RegisterRequest"
+                            "$ref": "#/definitions/backend_internal_handler_user.RegisterRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "注册成功，返回 token",
+                        "description": "注册成功，返回 Token",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.RegisterResponse"
+                            "$ref": "#/definitions/backend_internal_handler_user.RegisterResponse"
                         }
                     },
                     "400": {
-                        "description": "参数错误或验证码错误",
+                        "description": "请求参数错误或验证码错误",
                         "schema": {
                             "$ref": "#/definitions/wsai_backend_internal_common.Response"
                         }
@@ -337,21 +386,21 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "internal_handler_image.RecognizeImageResponse": {
+        "backend_internal_handler_image.RecognizeImageResponse": {
             "type": "object",
             "properties": {
                 "class_name": {
                     "type": "string"
                 },
                 "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
+                    "type": "integer"
                 },
                 "status_msg": {
                     "type": "string"
                 }
             }
         },
-        "internal_handler_session.CreateSessionAndSendFirstMessageRequest": {
+        "backend_internal_handler_session.CreateSessionAndSendFirstMessageRequest": {
             "type": "object",
             "required": [
                 "modelType",
@@ -366,7 +415,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handler_session.GetMeaasgeHistoryResponse": {
+        "backend_internal_handler_session.GetMeaasgeHistoryResponse": {
             "type": "object",
             "properties": {
                 "history": {
@@ -376,14 +425,14 @@ const docTemplate = `{
                     }
                 },
                 "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
+                    "type": "integer"
                 },
                 "status_msg": {
                     "type": "string"
                 }
             }
         },
-        "internal_handler_session.GetUserSessionsResponse": {
+        "backend_internal_handler_session.GetUserSessionsResponse": {
             "type": "object",
             "properties": {
                 "sessions": {
@@ -393,14 +442,14 @@ const docTemplate = `{
                     }
                 },
                 "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
+                    "type": "integer"
                 },
                 "status_msg": {
                     "type": "string"
                 }
             }
         },
-        "internal_handler_session.SendMessageStreamRequest": {
+        "backend_internal_handler_session.SendMessageStreamRequest": {
             "type": "object",
             "required": [
                 "modelType",
@@ -419,7 +468,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handler_user.CaptchaRequest": {
+        "backend_internal_handler_user.CaptchaRequest": {
             "type": "object",
             "required": [
                 "email"
@@ -430,18 +479,18 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handler_user.CaptchaResponse": {
+        "backend_internal_handler_user.CaptchaResponse": {
             "type": "object",
             "properties": {
                 "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
+                    "type": "integer"
                 },
                 "status_msg": {
                     "type": "string"
                 }
             }
         },
-        "internal_handler_user.LoginRequest": {
+        "backend_internal_handler_user.LoginRequest": {
             "type": "object",
             "properties": {
                 "password": {
@@ -452,11 +501,11 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handler_user.LoginResponse": {
+        "backend_internal_handler_user.LoginResponse": {
             "type": "object",
             "properties": {
                 "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
+                    "type": "integer"
                 },
                 "status_msg": {
                     "type": "string"
@@ -466,7 +515,18 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handler_user.RegisterRequest": {
+        "backend_internal_handler_user.LogoutResponse": {
+            "type": "object",
+            "properties": {
+                "status_code": {
+                    "type": "integer"
+                },
+                "status_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "backend_internal_handler_user.RegisterRequest": {
             "type": "object",
             "required": [
                 "email"
@@ -483,11 +543,11 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handler_user.RegisterResponse": {
+        "backend_internal_handler_user.RegisterResponse": {
             "type": "object",
             "properties": {
                 "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
+                    "type": "integer"
                 },
                 "status_msg": {
                     "type": "string"
@@ -501,52 +561,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
+                    "type": "integer"
                 },
                 "status_msg": {
                     "type": "string"
                 }
             }
-        },
-        "wsai_backend_internal_common_code.Code": {
-            "type": "integer",
-            "format": "int64",
-            "enum": [
-                1000,
-                2001,
-                2002,
-                2003,
-                2004,
-                2005,
-                2006,
-                2007,
-                2008,
-                2009,
-                2010,
-                3001,
-                4001,
-                5001,
-                5002,
-                5003
-            ],
-            "x-enum-varnames": [
-                "CodeSuccess",
-                "CodeInvalidParams",
-                "CodeUserExist",
-                "CodeUserNotExist",
-                "CodeInvalidPassword",
-                "CodeNotMatchPassword",
-                "CodeInvalidToken",
-                "CodeNotLogin",
-                "CodeInvalidCaptcha",
-                "CodeRecordNotFound",
-                "CodeIllegalPassword",
-                "CodeForbidden",
-                "CodeServerBusy",
-                "AIModelNotFind",
-                "AIModelCannotOpen",
-                "AIModelFail"
-            ]
         },
         "wsai_backend_internal_model.History": {
             "type": "object",
@@ -570,6 +590,14 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "description": "在请求头中填写 Bearer Token，例如：Bearer eyJhbGciOi...",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
     }
 }`
 
@@ -579,8 +607,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:9091",
 	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "WsAI Backend API",
-	Description:      "WsAI 项目 Swagger 文档",
+	Title:            "WsAI 后端接口文档",
+	Description:      "WsAI 项目的后端接口 Swagger 文档。",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

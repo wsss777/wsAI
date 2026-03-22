@@ -1,15 +1,15 @@
 basePath: /
 definitions:
-  internal_handler_image.RecognizeImageResponse:
+  backend_internal_handler_image.RecognizeImageResponse:
     properties:
       class_name:
         type: string
       status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+        type: integer
       status_msg:
         type: string
     type: object
-  internal_handler_session.CreateSessionAndSendFirstMessageRequest:
+  backend_internal_handler_session.CreateSessionAndSendFirstMessageRequest:
     properties:
       modelType:
         type: string
@@ -19,29 +19,29 @@ definitions:
     - modelType
     - question
     type: object
-  internal_handler_session.GetMeaasgeHistoryResponse:
+  backend_internal_handler_session.GetMeaasgeHistoryResponse:
     properties:
       history:
         items:
           $ref: '#/definitions/wsai_backend_internal_model.History'
         type: array
       status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+        type: integer
       status_msg:
         type: string
     type: object
-  internal_handler_session.GetUserSessionsResponse:
+  backend_internal_handler_session.GetUserSessionsResponse:
     properties:
       sessions:
         items:
           $ref: '#/definitions/wsai_backend_internal_model.SessionInfo'
         type: array
       status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+        type: integer
       status_msg:
         type: string
     type: object
-  internal_handler_session.SendMessageStreamRequest:
+  backend_internal_handler_session.SendMessageStreamRequest:
     properties:
       modelType:
         type: string
@@ -54,37 +54,44 @@ definitions:
     - question
     - sessionId
     type: object
-  internal_handler_user.CaptchaRequest:
+  backend_internal_handler_user.CaptchaRequest:
     properties:
       email:
         type: string
     required:
     - email
     type: object
-  internal_handler_user.CaptchaResponse:
+  backend_internal_handler_user.CaptchaResponse:
     properties:
       status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+        type: integer
       status_msg:
         type: string
     type: object
-  internal_handler_user.LoginRequest:
+  backend_internal_handler_user.LoginRequest:
     properties:
       password:
         type: string
       username:
         type: string
     type: object
-  internal_handler_user.LoginResponse:
+  backend_internal_handler_user.LoginResponse:
     properties:
       status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+        type: integer
       status_msg:
         type: string
       token:
         type: string
     type: object
-  internal_handler_user.RegisterRequest:
+  backend_internal_handler_user.LogoutResponse:
+    properties:
+      status_code:
+        type: integer
+      status_msg:
+        type: string
+    type: object
+  backend_internal_handler_user.RegisterRequest:
     properties:
       captcha:
         type: string
@@ -95,10 +102,10 @@ definitions:
     required:
     - email
     type: object
-  internal_handler_user.RegisterResponse:
+  backend_internal_handler_user.RegisterResponse:
     properties:
       status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+        type: integer
       status_msg:
         type: string
       token:
@@ -107,47 +114,10 @@ definitions:
   wsai_backend_internal_common.Response:
     properties:
       status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
+        type: integer
       status_msg:
         type: string
     type: object
-  wsai_backend_internal_common_code.Code:
-    enum:
-    - 1000
-    - 2001
-    - 2002
-    - 2003
-    - 2004
-    - 2005
-    - 2006
-    - 2007
-    - 2008
-    - 2009
-    - 2010
-    - 3001
-    - 4001
-    - 5001
-    - 5002
-    - 5003
-    format: int64
-    type: integer
-    x-enum-varnames:
-    - CodeSuccess
-    - CodeInvalidParams
-    - CodeUserExist
-    - CodeUserNotExist
-    - CodeInvalidPassword
-    - CodeNotMatchPassword
-    - CodeInvalidToken
-    - CodeNotLogin
-    - CodeInvalidCaptcha
-    - CodeRecordNotFound
-    - CodeIllegalPassword
-    - CodeForbidden
-    - CodeServerBusy
-    - AIModelNotFind
-    - AIModelCannotOpen
-    - AIModelFail
   wsai_backend_internal_model.History:
     properties:
       content:
@@ -165,8 +135,8 @@ definitions:
 host: localhost:9091
 info:
   contact: {}
-  description: WsAI 项目 Swagger 文档
-  title: WsAI Backend API
+  description: WsAI 项目的后端接口 Swagger 文档。
+  title: WsAI 后端接口文档
   version: "1.0"
 paths:
   /api/v1/AI/chatMessage/sessions:
@@ -180,7 +150,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler_session.GetUserSessionsResponse'
+            $ref: '#/definitions/backend_internal_handler_session.GetUserSessionsResponse'
       security:
       - ApiKeyAuth: []
       summary: 获取当前用户的所有会话列表
@@ -203,7 +173,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler_session.GetMeaasgeHistoryResponse'
+            $ref: '#/definitions/backend_internal_handler_session.GetMeaasgeHistoryResponse'
       security:
       - ApiKeyAuth: []
       summary: 获取指定会话的全部历史消息
@@ -225,7 +195,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_session.SendMessageStreamRequest'
+          $ref: '#/definitions/backend_internal_handler_session.SendMessageStreamRequest'
       produces:
       - text/event-stream
       responses:
@@ -249,7 +219,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_session.CreateSessionAndSendFirstMessageRequest'
+          $ref: '#/definitions/backend_internal_handler_session.CreateSessionAndSendFirstMessageRequest'
       produces:
       - text/event-stream
       responses:
@@ -267,12 +237,10 @@ paths:
       consumes:
       - multipart/form-data
       description: |-
-        上传单张图片，服务端返回识别出的主要类别名称
-
-        成功时：code=0，class_name 会有值
-        失败时：code 为错误码（1001 参数错误 / 1002 服务器忙等），class_name 为空
+        上传单张图片，服务端返回识别出的主要类别名称。
+        成功时返回 class_name，失败时通过 status_code 和 status_msg 返回错误信息。
       parameters:
-      - description: 要识别的图片文件（支持常见图片格式：jpg,png,gif等）
+      - description: 要识别的图片文件
         in: formData
         name: image
         required: true
@@ -281,9 +249,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: 业务错误（code≠0）也返回 200，这是项目规范
+          description: 业务错误时也统一返回 200，通过 status_code 区分
           schema:
-            $ref: '#/definitions/internal_handler_image.RecognizeImageResponse'
+            $ref: '#/definitions/backend_internal_handler_image.RecognizeImageResponse'
       summary: 上传图片进行分类/识别
       tags:
       - 图像识别
@@ -291,21 +259,21 @@ paths:
     post:
       consumes:
       - application/json
-      description: 向指定邮箱发送注册验证码
+      description: 向指定邮箱发送注册验证码。
       parameters:
       - description: 邮箱参数
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_user.CaptchaRequest'
+          $ref: '#/definitions/backend_internal_handler_user.CaptchaRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 验证码发送成功
           schema:
-            $ref: '#/definitions/internal_handler_user.CaptchaResponse'
+            $ref: '#/definitions/backend_internal_handler_user.CaptchaResponse'
         "400":
           description: 邮箱格式错误
           schema:
@@ -321,23 +289,23 @@ paths:
     post:
       consumes:
       - application/json
-      description: 根据用户名和密码登录，返回 JWT token
+      description: 根据用户名和密码登录，登录成功后返回 JWT Token。
       parameters:
       - description: 登录参数
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_user.LoginRequest'
+          $ref: '#/definitions/backend_internal_handler_user.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: 登录成功，返回 token
+          description: 登录成功，返回 Token
           schema:
-            $ref: '#/definitions/internal_handler_user.LoginResponse'
+            $ref: '#/definitions/backend_internal_handler_user.LoginResponse'
         "400":
-          description: 参数错误
+          description: 请求参数错误
           schema:
             $ref: '#/definitions/wsai_backend_internal_common.Response'
         "401":
@@ -347,27 +315,58 @@ paths:
       summary: 用户登录
       tags:
       - 用户认证
+  /api/v1/user/logout:
+    post:
+      consumes:
+      - application/json
+      description: 将当前请求携带的 JWT Token 加入 Redis 黑名单，后续该 Token 将无法再访问受保护接口。
+      parameters:
+      - description: Bearer Token，例如：Bearer eyJhbGciOi...
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 退出登录成功
+          schema:
+            $ref: '#/definitions/backend_internal_handler_user.LogoutResponse'
+        "401":
+          description: 未携带有效 Token
+          schema:
+            $ref: '#/definitions/wsai_backend_internal_common.Response'
+        "500":
+          description: 服务繁忙或 Redis 不可用
+          schema:
+            $ref: '#/definitions/wsai_backend_internal_common.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: 用户退出登录
+      tags:
+      - 用户认证
   /api/v1/user/users:
     post:
       consumes:
       - application/json
-      description: 通过邮箱、密码和验证码注册新用户，成功后直接返回登录 token
+      description: 通过邮箱、密码和验证码注册新用户，成功后直接返回 JWT Token。
       parameters:
       - description: 注册参数
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_user.RegisterRequest'
+          $ref: '#/definitions/backend_internal_handler_user.RegisterRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: 注册成功，返回 token
+          description: 注册成功，返回 Token
           schema:
-            $ref: '#/definitions/internal_handler_user.RegisterResponse'
+            $ref: '#/definitions/backend_internal_handler_user.RegisterResponse'
         "400":
-          description: 参数错误或验证码错误
+          description: 请求参数错误或验证码错误
           schema:
             $ref: '#/definitions/wsai_backend_internal_common.Response'
         "409":
@@ -377,4 +376,10 @@ paths:
       summary: 用户注册
       tags:
       - 用户认证
+securityDefinitions:
+  ApiKeyAuth:
+    description: 在请求头中填写 Bearer Token，例如：Bearer eyJhbGciOi...
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

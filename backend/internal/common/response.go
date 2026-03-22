@@ -5,7 +5,7 @@ import (
 )
 
 type Response struct {
-	StatusCode code.Code `json:"status_code"`
+	StatusCode code.Code `json:"status_code" swaggertype:"integer"`
 	StatusMsg  string    `json:"status_msg,omitempty"`
 }
 

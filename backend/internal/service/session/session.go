@@ -123,7 +123,9 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 		if werr != nil {
 			logger.L().Warn("SSE write error",
 				zap.Error(werr))
+			return
 		}
+		flusher.Flush()
 		return
 	}
 	flusher.Flush()
