@@ -22,7 +22,7 @@ type (
 		common.Response
 	}
 	RegisterRequest struct {
-		Email    string `json:"email"binding:"required"`
+		Email    string `json:"email" binding:"required"`
 		Captcha  string `json:"captcha"`
 		Password string `json:"password"`
 	}
@@ -31,7 +31,7 @@ type (
 		common.Response
 	}
 	CaptchaRequest struct {
-		Email string `json:"email"binding:"required"`
+		Email string `json:"email" binding:"required"`
 	}
 	CaptchaResponse struct {
 		common.Response
