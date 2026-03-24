@@ -10,6 +10,7 @@ import (
 func RegisterUserRouter(r *gin.RouterGroup) {
 	r.POST("/users", user.Register)
 	r.POST("/login", user.Login)
+	r.POST("/email-login", user.LoginWithEmail)
 	r.POST("/captcha", user.HandleCaptcha)
 	r.POST("/logout", jwtmiddleware.AuthMiddleware(), user.Logout)
 }

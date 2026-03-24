@@ -64,6 +64,7 @@ func GetUserSessionsByUsername(username string) ([]model.SessionInfo, error) {
 		infos = append(infos, model.SessionInfo{
 			SessionID: sess.ID,
 			Title:     title,
+			UpdatedAt: sess.UpdatedAt,
 		})
 	}
 	return infos, nil
@@ -99,6 +100,13 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 	if !ok {
 		logger.L().Warn("streamMessageToExistingSession http.Flusher error")
 		return code.CodeServerBusy
+	}
+
+	if err := session.TouchSession(sessionID); err != nil {
+		logger.L().Warn("session.TouchSession error",
+			zap.String("username", userName),
+			zap.String("sessionId", sessionID),
+			zap.Error(err))
 	}
 
 	manager := ai.GetGlobalManager()

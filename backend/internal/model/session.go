@@ -16,6 +16,7 @@ type Session struct {
 }
 
 type SessionInfo struct {
-	SessionID string `json:"sessionId"`
-	Title     string `json:"title"`
+	SessionID string    `json:"sessionId"`
+	Title     string    `json:"title"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }

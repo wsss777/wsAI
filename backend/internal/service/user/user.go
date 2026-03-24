@@ -30,6 +30,24 @@ func Login(username, password string) (string, code.Code) {
 	return token, code.CodeSuccess
 }
 
+func LoginWithEmail(email, password string) (string, code.Code) {
+	var userInformation *model.User
+	var ok bool
+
+	if ok, userInformation = user.IsExistUserWithEmail(email); !ok {
+		return "", code.CodeUserNotExist
+	}
+	if userInformation.Password != utils.MD5(password) {
+		return "", code.CodeInvalidPassword
+	}
+
+	token, err := jwt.GenerateToken(userInformation.ID, userInformation.Username)
+	if err != nil {
+		return "", code.CodeServerBusy
+	}
+	return token, code.CodeSuccess
+}
+
 func Register(email, password, captcha_ string) (string, code.Code) {
 	var ok bool
 	var userInformation *model.User

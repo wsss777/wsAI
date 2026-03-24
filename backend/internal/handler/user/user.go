@@ -17,6 +17,10 @@ type (
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
+	EmailLoginRequest struct {
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password"`
+	}
 	LoginResponse struct {
 		Token string `json:"token"`
 		common.Response
@@ -62,7 +66,38 @@ func Login(c *gin.Context) {
 	token, code_ := user.Login(req.Username, req.Password)
 	if code_ != code.CodeSuccess {
 		c.JSON(http.StatusOK, res.CodeOf(code_))
+		return
 	}
+	res.Success()
+	res.Token = token
+	c.JSON(http.StatusOK, res)
+}
+
+// LoginWithEmail godoc
+// @Summary 用户邮箱登录
+// @Description 根据注册邮箱和密码登录，登录成功后返回 JWT Token。
+// @Tags 用户认证
+// @Accept json
+// @Produce json
+// @Param request body EmailLoginRequest true "邮箱登录参数"
+// @Success 200 {object} LoginResponse "登录成功，返回 Token"
+// @Failure 400 {object} common.Response "请求参数错误"
+// @Failure 401 {object} common.Response "邮箱或密码错误"
+// @Router /api/v1/user/email-login [post]
+func LoginWithEmail(c *gin.Context) {
+	req := new(EmailLoginRequest)
+	res := new(LoginResponse)
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidParams))
+		return
+	}
+
+	token, code_ := user.LoginWithEmail(req.Email, req.Password)
+	if code_ != code.CodeSuccess {
+		c.JSON(http.StatusOK, res.CodeOf(code_))
+		return
+	}
+
 	res.Success()
 	res.Token = token
 	c.JSON(http.StatusOK, res)
