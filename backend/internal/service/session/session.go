@@ -143,7 +143,7 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 			return
 		}
 		flusher.Flush()
-		return
+
 	}
 	flusher.Flush()
 	zap.L().Debug("SSE message to existing session")
