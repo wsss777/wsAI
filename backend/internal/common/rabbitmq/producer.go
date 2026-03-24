@@ -1,4 +1,4 @@
-package rabbitmq // Package rabbitmq 同包
+package rabbitmq
 
 import (
 	"fmt"
@@ -8,8 +8,21 @@ import (
 	"go.uber.org/zap"
 )
 
-// PublishWork 发送消息（Work 模式）
 func (r *RabbitMQ) PublishWork(message []byte) error {
+	err := r.publishWorkOnce(message)
+	if err == nil {
+		return nil
+	}
+
+	logger.L().Warn("RabbitMQ publish failed, reconnecting and retrying once",
+		zap.Error(err),
+		zap.String("queue", r.Key),
+	)
+	r.reconnect()
+	return r.publishWorkOnce(message)
+}
+
+func (r *RabbitMQ) publishWorkOnce(message []byte) error {
 	if r.channel == nil {
 		return fmt.Errorf("channel is nil")
 	}
@@ -45,7 +58,6 @@ func (r *RabbitMQ) PublishWork(message []byte) error {
 		logger.L().Error("RabbitMQ publish message failed",
 			zap.Error(err),
 			zap.String("queue", r.Key),
-
 			zap.ByteString("message", message),
 		)
 		return err

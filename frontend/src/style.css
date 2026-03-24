@@ -641,6 +641,10 @@ textarea {
   word-break: break-word;
 }
 
+.plain-text {
+  white-space: pre-wrap;
+}
+
 .markdown-body > :first-child {
   margin-top: 0;
 }

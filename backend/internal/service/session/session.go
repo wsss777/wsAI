@@ -127,7 +127,16 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 		zap.L().Debug("sending SSE chunk",
 			zap.Int("length", len(msg)),
 		)
-		_, werr := writer.Write([]byte("data: " + msg + "\n\n"))
+		lines := strings.Split(msg, "\n")
+		for _, line := range lines {
+			_, werr := writer.Write([]byte("data: " + line + "\n"))
+			if werr != nil {
+				logger.L().Warn("SSE write error",
+					zap.Error(werr))
+				return
+			}
+		}
+		_, werr := writer.Write([]byte("\n"))
 		if werr != nil {
 			logger.L().Warn("SSE write error",
 				zap.Error(werr))

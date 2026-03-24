@@ -46,13 +46,19 @@ async function request(path, options = {}) {
 function parseSseEvent(block) {
   const lines = block.split('\n')
   const event = { type: 'message', data: '' }
+  let hasData = false
 
   for (const line of lines) {
     if (line.startsWith('event:')) {
       event.type = line.slice(6).trim()
     }
     if (line.startsWith('data:')) {
-      event.data += line.slice(5).trimStart()
+      const value = line.startsWith('data: ') ? line.slice(6) : line.slice(5)
+      if (hasData) {
+        event.data += '\n'
+      }
+      event.data += value
+      hasData = true
     }
   }
 

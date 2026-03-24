@@ -1,4 +1,4 @@
-package rabbitmq // Package rabbitmq 包名 rabbitmq
+package rabbitmq
 
 import (
 	"fmt"
@@ -10,26 +10,28 @@ import (
 	"go.uber.org/zap"
 )
 
-// conn 全局连接
 var conn *amqp.Connection
 
 var RMQMessage *RabbitMQ
+var RMQMessageConsumer *RabbitMQ
 var connMu sync.Mutex
 var once sync.Once
 
 func InitRabbitMQ() {
-	//创建MQ并启动消费者
-	//不同队列共用一个连接，可以保持不同队列消费消息的顺序
 	RMQMessage = NewWorkRabbitMQ("Message")
-	go RMQMessage.ConsumeWork(ProcessMessageDelivery)
+	RMQMessageConsumer = NewWorkRabbitMQ("Message")
+	go RMQMessageConsumer.ConsumeWork(ProcessMessageDelivery)
 }
+
 func DestroyRabbitMQ() {
 	if RMQMessage != nil {
 		RMQMessage.Destroy()
 	}
+	if RMQMessageConsumer != nil {
+		RMQMessageConsumer.Destroy()
+	}
 }
 
-// initConn 初始化 RabbitMQ 连接
 func initConn() error {
 	once.Do(func() {
 		c := config.C.RabbitmqConfig
@@ -59,7 +61,6 @@ func initConn() error {
 	return nil
 }
 
-// CloseConn 关闭全局连接
 func CloseConn() error {
 	if conn != nil {
 		return conn.Close()
@@ -75,7 +76,6 @@ type RabbitMQ struct {
 	queueName string
 }
 
-// NewRabbitMQ New 创建基础实例
 func NewRabbitMQ(exchange, key string) *RabbitMQ {
 	return &RabbitMQ{
 		Exchange:  exchange,
@@ -84,7 +84,6 @@ func NewRabbitMQ(exchange, key string) *RabbitMQ {
 	}
 }
 
-// Destroy 关闭 channel 和 connection
 func (r *RabbitMQ) Destroy() {
 	if r.channel != nil {
 		if err := r.channel.Close(); err != nil {
@@ -97,7 +96,6 @@ func (r *RabbitMQ) Destroy() {
 	}
 }
 
-// NewWorkRabbitMQ 创建Work模式的RabbitMQ实例
 func NewWorkRabbitMQ(queue string) *RabbitMQ {
 	rabbitmq := NewRabbitMQ("", queue)
 	rabbitmq.queueName = queue
@@ -129,7 +127,6 @@ func (r *RabbitMQ) reconnect() {
 		r.channel = nil
 	}
 
-	// 如果全局连接断了，重新建立
 	if conn == nil || conn.IsClosed() {
 		conn = nil
 		_ = initConn()
@@ -143,7 +140,6 @@ func (r *RabbitMQ) reconnect() {
 	}
 	r.channel = ch
 
-	// 重新声明持久化队列
 	_, err = ch.QueueDeclare(r.queueName, true, false, false, false, nil)
 	if err != nil {
 		logger.L().Error("Reconnect: queue declare failed", zap.Error(err))

@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// MessageMQPara 定义投递到 RabbitMQ 的消息参数结构
 type MessageMQPara struct {
 	SessionID string `json:"session_id"`
 	Content   string `json:"content"`
@@ -19,7 +18,6 @@ type MessageMQPara struct {
 	IsUser    bool   `json:"is_user"`
 }
 
-// GenerateMessageMQPara 生成要发送到 MQ 的 JSON 字节
 func GenerateMessageMQPara(sessionID string, content string, username string, isUser bool) ([]byte, error) {
 	para := MessageMQPara{
 		SessionID: sessionID,
@@ -40,7 +38,6 @@ func GenerateMessageMQPara(sessionID string, content string, username string, is
 	return data, nil
 }
 
-// ProcessMessageDelivery 处理 RabbitMQ 投递的消息
 func ProcessMessageDelivery(msg *amqp.Delivery) error {
 	var para MessageMQPara
 	if err := json.Unmarshal(msg.Body, &para); err != nil {
@@ -48,9 +45,9 @@ func ProcessMessageDelivery(msg *amqp.Delivery) error {
 			zap.Error(err),
 			zap.Uint64("delivery_tag", msg.DeliveryTag),
 		)
-		msg.Nack(false, true)
 		return err
 	}
+
 	logger.L().Info("RabbitMQ received message",
 		zap.String("session_id", para.SessionID),
 		zap.String("user_name", para.Username),
@@ -73,14 +70,12 @@ func ProcessMessageDelivery(msg *amqp.Delivery) error {
 			zap.Uint64("delivery_tag", msg.DeliveryTag),
 			zap.String("username", newMsg.UserName),
 		)
-		// 保存失败：拒绝消息并 requeue（让同一个或别的消费者重试）
-		msg.Nack(false, true)
 		return err
 	}
+
 	logger.L().Debug("Chat message saved to DB successfully",
 		zap.String("session_id", newMsg.SessionID),
 		zap.Uint64("delivery_tag", msg.DeliveryTag),
 	)
-	msg.Ack(false)
 	return nil
 }

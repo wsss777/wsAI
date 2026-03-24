@@ -1,9 +1,17 @@
 <template>
   <div class="rich-message">
-    <div v-if="role === 'user'" class="markdown-body markdown-body--user">
-      <p>{{ content }}</p>
+    <div v-if="role === 'user'" class="markdown-body markdown-body--user plain-text">
+      {{ content }}
     </div>
-    <div v-else class="markdown-body" v-html="renderedHtml"></div>
+    <template v-else>
+      <template v-for="(block, index) in renderedBlocks" :key="`${block.type}-${index}`">
+        <div v-if="block.type === 'text'" class="markdown-body" v-html="block.html"></div>
+        <section v-else class="code-block">
+          <header class="code-block__header">{{ block.language }}</header>
+          <pre><code>{{ block.content }}</code></pre>
+        </section>
+      </template>
+    </template>
   </div>
 </template>
 
@@ -11,6 +19,7 @@
 import { computed } from 'vue'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
+import { buildMessageBlocks } from '../../utils/messageFormatter'
 
 marked.setOptions({
   gfm: true,
@@ -28,9 +37,16 @@ const props = defineProps({
   }
 })
 
-const renderedHtml = computed(() => {
-  const raw = props.content || ''
-  const html = marked.parse(raw)
-  return DOMPurify.sanitize(html)
+const renderedBlocks = computed(() => {
+  return buildMessageBlocks(props.content, props.role).map((block) => {
+    if (block.type !== 'text') {
+      return block
+    }
+
+    return {
+      ...block,
+      html: DOMPurify.sanitize(marked.parse(block.content || ''))
+    }
+  })
 })
 </script>
