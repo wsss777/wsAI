@@ -1,0 +1,49 @@
+package rabbitmq
+
+import (
+	"wsai/backend/infra/logger"
+
+	"github.com/streadway/amqp"
+	"go.uber.org/zap"
+)
+
+// ConsumeWork 以工作模式启动消费者。
+func (r *RabbitMQ) ConsumeWork(handle func(msg *amqp.Delivery) error) error {
+	for {
+		if err := r.channel.Qos(1, 0, false); err != nil {
+			logger.L().Error("RabbitMQ set QoS failed", zap.Error(err))
+			r.reconnect()
+			continue
+		}
+
+		msgs, err := r.channel.Consume(
+			r.queueName, "", false, false, false, false, nil,
+		)
+		if err != nil {
+			logger.L().Error("RabbitMQ register consumer failed",
+				zap.Error(err),
+				zap.String("queue", r.queueName),
+			)
+			return err
+		}
+
+		logger.L().Info("RabbitMQ consumer started",
+			zap.String("queue", r.queueName),
+		)
+
+		for msg := range msgs {
+			if err := handle(&msg); err != nil {
+				msg.Nack(false, true)
+				logger.L().Error("RabbitMQ message handle failed",
+					zap.Error(err),
+					zap.ByteString("body", msg.Body),
+					zap.String("queue", r.queueName),
+				)
+			} else {
+				msg.Ack(false)
+			}
+		}
+		logger.L().Warn("RabbitMQ channel closed, reconnecting...")
+		r.reconnect()
+	}
+}

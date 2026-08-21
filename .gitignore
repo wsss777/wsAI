@@ -1,2 +1,10 @@
 .env
-.idea
+.idea/
+frontend/node_modules/
+frontend/dist/
+server.exe
+.gocache/
+doc/
+plans/
+backend/internal/
+backend/data/uploads/

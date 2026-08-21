@@ -1,4 +1,4 @@
-// @title WsAI Backend API
+// @title WsAI 后端接口
 // @version 1.0
 // @description WsAI 项目 Swagger 文档
 // @host localhost:9091
@@ -10,13 +10,13 @@ import (
 	"os"
 	"wsai/backend/config"
 	_ "wsai/backend/docs"
-	"wsai/backend/internal/ai"
-	"wsai/backend/internal/common/mysql"
-	"wsai/backend/internal/common/rabbitmq"
-	"wsai/backend/internal/common/redis"
-	"wsai/backend/internal/logger"
-	"wsai/backend/internal/repository/message"
-	"wsai/backend/internal/router"
+	"wsai/backend/handler"
+	ai "wsai/backend/infra/llm"
+	"wsai/backend/infra/logger"
+	"wsai/backend/infra/mysql"
+	message "wsai/backend/infra/mysql/repository"
+	"wsai/backend/infra/rabbitmq"
+	"wsai/backend/infra/redis"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -25,7 +25,7 @@ import (
 )
 
 func StartServer(addr string, port int) error {
-	r := router.InitRouter()
+	r := handler.InitRouter()
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	return r.Run(fmt.Sprintf("%s:%d", addr, port))
 

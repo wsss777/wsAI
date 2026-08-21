@@ -64,6 +64,13 @@ type Config struct {
 		Port     int    `mapstructure:"port"`
 		IsSSL    bool   `mapstructure:"is_ssl"`
 	} `mapstructure:"email"`
+	RAGConfig struct {
+		QdrantURL      string `mapstructure:"qdrant_url"`
+		Collection     string `mapstructure:"collection"`
+		EmbeddingModel string `mapstructure:"embedding_model"`
+		EmbeddingSize  int    `mapstructure:"embedding_size"`
+		TopK           int    `mapstructure:"top_k"`
+	} `mapstructure:"rag"`
 }
 
 func InitConfig() {
@@ -97,6 +104,11 @@ func InitConfig() {
 		v.SetDefault("app.port", "9091")
 		v.SetDefault("jwt.access_ttl", "2h")
 		v.SetDefault("jwt.refresh_ttl", "30d")
+		v.SetDefault("rag.qdrant_url", "http://127.0.0.1:6333")
+		v.SetDefault("rag.collection", "wsai_doc_chunks")
+		v.SetDefault("rag.embedding_model", "text-embedding-3-small")
+		v.SetDefault("rag.embedding_size", 1536)
+		v.SetDefault("rag.top_k", 5)
 
 		if err := v.ReadInConfig(); err != nil {
 			log.Printf("警告: 未找到配置文件，使用默认值+环境变量: %v", err)
