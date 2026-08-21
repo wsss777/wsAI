@@ -33,7 +33,17 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+  qdrant:
+    image: qdrant/qdrant:v1.16.2
+    container_name: wsai-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
 
 volumes:
     mysql-data:
     redis-data:
+    qdrant-data:
