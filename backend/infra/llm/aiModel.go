@@ -36,7 +36,7 @@ func NewOpenAIModel(ctx context.Context, config ChatProviderConfig) (*OpenAIMode
 		BaseURL: config.BaseURL,
 		Model:   config.Model,
 		APIKey:  config.APIKey,
-		Timeout: 45 * time.Second,
+		Timeout: 150 * time.Second,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create %s chat model failed: %w", config.Provider, err)

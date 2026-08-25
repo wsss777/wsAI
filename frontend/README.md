@@ -18,4 +18,4 @@ npm install
 npm run dev
 ```
 
-Default backend base URL is `http://127.0.0.1:9091/api/v1`.
+Default backend base URL is `http://localhost:9091/api/v1`.

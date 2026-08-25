@@ -2,7 +2,10 @@ import { computed, ref } from 'vue'
 
 const token = ref(localStorage.getItem('wsai-token') || '')
 const username = ref(localStorage.getItem('wsai-username') || '未登录')
-const apiBaseUrl = ref(localStorage.getItem('wsai-api-base-url') || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:9091/api/v1')
+const defaultApiBaseUrl = 'http://localhost:9091/api/v1'
+const storedApiBaseUrl = localStorage.getItem('wsai-api-base-url')
+const apiBaseUrl = ref(storedApiBaseUrl === 'http://127.0.0.1:9091/api/v1' ? defaultApiBaseUrl : (storedApiBaseUrl || import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl))
+if (storedApiBaseUrl === 'http://127.0.0.1:9091/api/v1') localStorage.setItem('wsai-api-base-url', defaultApiBaseUrl)
 
 export const authStore = {
   token,

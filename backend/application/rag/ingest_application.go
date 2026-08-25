@@ -29,7 +29,7 @@ func IngestDocument(doc *model.Document) {
 	chunks := domain.ChunkText(text, 800)
 	inputs := make([]string, len(chunks))
 	for i := range chunks {
-		inputs[i] = chunks[i].Content
+		inputs[i] = embeddingText(chunks[i])
 	}
 	vectors, err := infrarag.Embed(ctx, inputs)
 	if err == nil && len(vectors) != len(chunks) {
@@ -47,8 +47,8 @@ func IngestDocument(doc *model.Document) {
 	points := make([]map[string]interface{}, 0, len(chunks))
 	for i, c := range chunks {
 		id := utils.GenerateUUID()
-		models = append(models, &model.DocumentChunk{ChunkID: id, DocumentPK: doc.ID, DocumentID: doc.DocumentID, ChunkIndex: int64(c.Index), Content: c.Content, TokenCount: int64(c.TokenCount), EmbeddingModel: configModel(), VectorPointID: id})
-		points = append(points, map[string]interface{}{"id": id, "vector": vectors[i], "payload": map[string]interface{}{"chunk_id": id, "document_id": doc.DocumentID, "user_name": doc.UserName, "file_name": doc.FileName, "chunk_index": c.Index}})
+		models = append(models, &model.DocumentChunk{ChunkID: id, DocumentPK: doc.ID, DocumentID: doc.DocumentID, ChunkIndex: int64(c.Index), SectionTitle: c.SectionTitle, Content: c.Content, TokenCount: int64(c.TokenCount), EmbeddingModel: configModel(), VectorPointID: id})
+		points = append(points, map[string]interface{}{"id": id, "vector": vectors[i], "payload": map[string]interface{}{"chunk_id": id, "document_id": doc.DocumentID, "user_name": doc.UserName, "file_name": doc.FileName, "chunk_index": c.Index, "section_title": c.SectionTitle}})
 	}
 	if err = infrarag.Upsert(ctx, points); err != nil {
 		fail(err)
@@ -61,3 +61,9 @@ func IngestDocument(doc *model.Document) {
 	_ = repo.UpdateIngestResult(doc.DocumentID, model.DocumentParseStatusReady, int64(len(models)), configModel(), "")
 }
 func configModel() string { return infrarag.EmbeddingModel() }
+func embeddingText(chunk domain.Chunk) string {
+	if chunk.SectionTitle == "" {
+		return chunk.Content
+	}
+	return "标题：" + chunk.SectionTitle + "\n正文：" + chunk.Content
+}
