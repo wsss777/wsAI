@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"wsai/backend/config"
 )
@@ -46,8 +45,8 @@ func Embed(ctx context.Context, texts []string) ([][]float64, error) {
 		return nil, fmt.Errorf("embedding input must not be empty")
 	}
 
-	base := strings.TrimRight(os.Getenv("ZHIPU_BASE_URL"), "/")
-	apiKey := os.Getenv("ZHIPU_API_KEY")
+	base := strings.TrimRight(config.C.ZhipuConfig.BaseURL, "/")
+	apiKey := config.C.ZhipuConfig.APIKey
 	if base == "" || apiKey == "" {
 		return nil, fmt.Errorf("ZHIPU_BASE_URL and ZHIPU_API_KEY must be configured for document retrieval")
 	}
@@ -95,9 +94,6 @@ func Embed(ctx context.Context, texts []string) ([][]float64, error) {
 // EmbeddingModel 返回文档向量实际使用的模型。
 // 对话与向量化有意使用独立的服务提供方和凭据。
 func EmbeddingModel() string {
-	if model := strings.TrimSpace(os.Getenv("ZHIPU_EMBEDDING_MODEL")); model != "" {
-		return model
-	}
 	return config.C.RAGConfig.EmbeddingModel
 }
 func Ensure(ctx context.Context, size int) error {

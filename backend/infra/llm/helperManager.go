@@ -34,7 +34,7 @@ func (m *AIHelperManager) GetOrCreateAIHelper(username string, sessionID string,
 
 	// 检查会话是否已存在
 	helper, exists := userHelpers[sessionID]
-	if exists {
+	if exists && helper.GetModelType() == modelType {
 		return helper, nil
 	}
 	// 创建新的 AIHelper。
@@ -42,6 +42,9 @@ func (m *AIHelperManager) GetOrCreateAIHelper(username string, sessionID string,
 	helper, err := factory.CreateAIHelper(ctx, modelType, sessionID, config)
 	if err != nil {
 		return nil, err
+	}
+	if exists {
+		helper.RestoreMessages(userHelpers[sessionID].GetAllMessage())
 	}
 
 	userHelpers[sessionID] = helper

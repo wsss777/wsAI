@@ -49,10 +49,12 @@ func readDataFromDB() error {
 	)
 	for i := range msgs {
 		msg := &msgs[i]
-		modelType := ai.ModelTypeOpenAI
-		config := make(map[string]interface{})
+		modelType, err := ai.DefaultChatModelType()
+		if err != nil {
+			return err
+		}
 
-		helper, err := manager.GetOrCreateAIHelper(msg.UserName, msg.SessionID, modelType, config)
+		helper, err := manager.GetOrCreateAIHelper(msg.UserName, msg.SessionID, modelType, nil)
 		if err != nil {
 			logger.L().Error("创建获取AIHelper失败",
 				zap.String("username", msg.UserName),

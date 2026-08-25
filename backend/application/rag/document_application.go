@@ -3,7 +3,6 @@ package rag
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -11,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"wsai/backend/infra/logger"
-	"wsai/backend/infra/mysql"
 	documentrepo "wsai/backend/infra/mysql/repository"
 	sessiondocumentrepo "wsai/backend/infra/mysql/repository"
 	sessionrepo "wsai/backend/infra/mysql/repository"
@@ -19,7 +17,6 @@ import (
 	"wsai/backend/utils"
 
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 // UploadDocument 上传文档并保存记录
@@ -73,10 +70,6 @@ func UploadDocument(userName string, fileHeader *multipart.FileHeader) (*model.D
 	tempPath := tempFile.Name()
 
 	defer func() {
-		_ = tempFile.Close()
-	}()
-
-	defer func() {
 		if _, statErr := os.Stat(tempPath); statErr == nil {
 			_ = os.Remove(tempPath)
 		}
@@ -94,27 +87,22 @@ func UploadDocument(userName string, fileHeader *multipart.FileHeader) (*model.D
 
 	contentHash := hex.EncodeToString(hasher.Sum(nil))
 
-	existingDoc := &model.Document{}
-	err = mysql.DB.
-		Where("user_name = ? AND content_hash = ?", userName, contentHash).
-		Order("updated_at desc").
-		First(existingDoc).
-		Error
-	if err == nil {
-		logger.L().Info("UploadDocument duplicated document detected",
-			zap.String("username", userName),
-			zap.String("file_name", fileHeader.Filename),
-			zap.String("document_id", existingDoc.DocumentID),
-			zap.String("content_hash", contentHash))
-		return existingDoc, nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
+	existingDoc, err := documentrepo.FindLatestDocumentByUserNameAndContentHash(userName, contentHash)
+	if err != nil {
 		logger.L().Error("UploadDocument query duplicated document failed",
 			zap.String("username", userName),
 			zap.String("file_name", fileHeader.Filename),
 			zap.String("content_hash", contentHash),
 			zap.Error(err))
 		return nil, err
+	}
+	if existingDoc != nil {
+		logger.L().Info("UploadDocument duplicated document detected",
+			zap.String("username", userName),
+			zap.String("file_name", fileHeader.Filename),
+			zap.String("document_id", existingDoc.DocumentID),
+			zap.String("content_hash", contentHash))
+		return existingDoc, nil
 	}
 
 	documentID := utils.GenerateUUID()

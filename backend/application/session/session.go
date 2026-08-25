@@ -80,10 +80,12 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 	}
 
 	manager := ai.GetGlobalManager()
-	config := map[string]interface{}{
-		"apiKey": "api-key",
+	modelType, err := ai.NormalizeModelType(modelType)
+	if err != nil {
+		logger.L().Error("invalid chat model provider", zap.Error(err))
+		return code.AIModelFail
 	}
-	helper, err := manager.GetOrCreateAIHelper(userName, sessionID, modelType, config)
+	helper, err := manager.GetOrCreateAIHelper(userName, sessionID, modelType, nil)
 	if err != nil {
 		logger.L().Error("manager.GetOrCreateAIHelper error , failed to create AI helper",
 			zap.String("username", userName),
@@ -118,6 +120,7 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 			zap.String("sessionId", sessionID),
 			zap.String("modelType", modelType),
 			zap.Error(err_))
+		writeStreamError(writer, flusher, modelErrorMessage(err_))
 		return code.AIModelFail
 	}
 	if len(citations) > 0 {
@@ -136,6 +139,25 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 
 	return code.CodeSuccess
 
+}
+
+// writeStreamError 向前端发送可直接展示的流式错误消息。
+func writeStreamError(writer http.ResponseWriter, flusher http.Flusher, message string) {
+	payload, _ := json.Marshal(map[string]string{"message": message})
+	_, _ = writer.Write([]byte("event: error\ndata: " + string(payload) + "\n\n"))
+	flusher.Flush()
+}
+
+// modelErrorMessage 将第三方模型错误转换为用户可理解的提示。
+func modelErrorMessage(err error) string {
+	detail := strings.ToLower(err.Error())
+	if strings.Contains(detail, "rate limit") || strings.Contains(detail, "429") || strings.Contains(detail, "1302") {
+		return "当前模型请求过于频繁，已触发服务限流，请稍后再试。"
+	}
+	if strings.Contains(detail, "deadline exceeded") || strings.Contains(detail, "timeout") {
+		return "模型服务响应超时，请稍后再试。"
+	}
+	return "模型服务请求失败，请检查模型配置或稍后再试。"
 }
 
 func ChatStreamSend(userName string, sessionID string, userQuestion string, modelType string, writer http.ResponseWriter) code.Code {

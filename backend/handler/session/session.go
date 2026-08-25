@@ -19,7 +19,7 @@ type (
 	}
 	CreateSessionAndSendFirstMessageRequest struct {
 		UserQuestion string   `json:"question" binding:"required"`
-		ModelType    string   `json:"modelType" binding:"required"`
+		ModelType    string   `json:"modelType"`
 		DocumentIDs  []string `json:"document_ids"`
 	}
 	CreateSessionAndSendFirstMessageResponse struct {
@@ -29,7 +29,7 @@ type (
 	}
 	SendMessageStreamRequest struct {
 		UserQuestion string `json:"question" binding:"required"`
-		ModelType    string `json:"modelType" binding:"required"`
+		ModelType    string `json:"modelType"`
 		SessionID    string `json:"sessionId,omitempty" binding:"required"`
 	}
 	SendMessageStreamResponse struct {

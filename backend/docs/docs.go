@@ -354,7 +354,6 @@ const docTemplate = `{
         "internal_handler_session.CreateSessionAndSendFirstMessageRequest": {
             "type": "object",
             "required": [
-                "modelType",
                 "question"
             ],
             "properties": {
@@ -403,7 +402,6 @@ const docTemplate = `{
         "internal_handler_session.SendMessageStreamRequest": {
             "type": "object",
             "required": [
-                "modelType",
                 "question",
                 "sessionId"
             ],

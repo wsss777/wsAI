@@ -2,12 +2,14 @@ package ai
 
 import (
 	"context"
-	"github.com/cloudwego/eino/schema"
+	"fmt"
 	"sync"
 	"wsai/backend/infra/logger"
 	"wsai/backend/infra/rabbitmq"
 	"wsai/backend/model"
 	"wsai/backend/utils"
+
+	"github.com/cloudwego/eino/schema"
 
 	"go.uber.org/zap"
 )
@@ -26,7 +28,13 @@ func (a *AIHelper) StreamResponseWithContext(username string, ctx context.Contex
 	a.muRW.RLock()
 	messages := utils.ConvertToSchemaMessages(a.messages)
 	a.muRW.RUnlock()
-	formatInstruction := "请使用清晰、简洁的 Markdown 回复：标题必须单独成行且后面留空行；用列表表达并列信息；代码使用代码块；避免把多个段落、标题或列表挤在同一行。"
+	providerName := a.model.GetModelType()
+	if providerName == ModelTypeZhipu {
+		providerName = "智谱 GLM"
+	} else if providerName == ModelTypeOpenAI {
+		providerName = "ChatGPT / OpenAI 兼容服务"
+	}
+	formatInstruction := fmt.Sprintf("当前本次回答由“%s”提供，模型标识为“%s”。当用户询问你是什么模型、是否为 ChatGPT 或 GLM 时，必须按此配置如实回答；不得声称不知道、无法查看，或说自己是其他提供方。请使用清晰、简洁的 Markdown 回复；仅在确有多层结构时使用标题，普通问答不要使用 # 标题。", providerName, a.model.GetModelName())
 	systemMessages := []*schema.Message{{Role: schema.System, Content: formatInstruction}}
 	if knowledge != "" {
 		systemMessages = append(systemMessages, &schema.Message{Role: schema.System, Content: "请仅依据以下资料回答；资料不足时明确说明。\n\n" + knowledge})
@@ -106,6 +114,13 @@ func (a *AIHelper) GetAllMessage() []*model.Message {
 	out := make([]*model.Message, len(a.messages))
 	copy(out, a.messages)
 	return out
+}
+
+// RestoreMessages 在切换模型时保留已有会话上下文。
+func (a *AIHelper) RestoreMessages(messages []*model.Message) {
+	a.muRW.Lock()
+	defer a.muRW.Unlock()
+	a.messages = append([]*model.Message(nil), messages...)
 }
 
 // 流式生成

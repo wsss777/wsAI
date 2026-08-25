@@ -14,9 +14,11 @@ export const unbindDocument = (sessionId, documentId) => request(`/rag/sessions/
 export const recognizeImage = file => { const data = new FormData(); data.append('image', file); return request('/image/recognize', { method: 'POST', body: data }) }
 export const fetchSessions = () => request('/AI/chatMessage/sessions')
 export const fetchHistory = id => request(`/AI/chatMessage/sessions/${id}/messages`)
-export async function streamSessionMessage({ sessionId, question, documentIds = [], modelType = 'openai' }, handlers = {}) {
-  const path = sessionId ? `/AI/chatMessage/sessions/${sessionId}/messages/stream` : '/AI/chatMessage/sessions/stream'
-  const body = sessionId ? { sessionId, question, modelType } : { question, modelType, document_ids: documentIds }
+let selectedChatModelType = 'openai'
+export function setChatModelType(modelType) { selectedChatModelType = modelType === 'zhipu' ? 'zhipu' : 'openai' }
+export async function streamSessionMessage({ sessionId, question, documentIds = [], modelType = selectedChatModelType }, handlers = {}) {
+	const path = sessionId ? `/AI/chatMessage/sessions/${sessionId}/messages/stream` : '/AI/chatMessage/sessions/stream'
+	const body = sessionId ? { sessionId, question, modelType } : { question, modelType, document_ids: documentIds }
   const response = await fetch(`${authStore.apiBaseUrl.value}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authStore.token.value}` }, body: JSON.stringify(body) })
   if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`)
   const reader = response.body.getReader(), decoder = new TextDecoder(); let buffer = ''

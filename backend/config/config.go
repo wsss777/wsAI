@@ -29,7 +29,7 @@ type Config struct {
 		RefreshTTL string `mapstructure:"refresh_ttl"`
 		Issuer     string `mapstructure:"issuer"`
 		Subject    string `mapstructure:"subject"`
-	} `mapstructuer:"jwt"`
+	} `mapstructure:"jwt"`
 
 	MysqlConfig struct {
 		Host         string `mapstructure:"host"`
@@ -71,6 +71,19 @@ type Config struct {
 		EmbeddingSize  int    `mapstructure:"embedding_size"`
 		TopK           int    `mapstructure:"top_k"`
 	} `mapstructure:"rag"`
+	ChatConfig struct {
+		ModelProvider string `mapstructure:"model_provider"`
+	} `mapstructure:"chat"`
+	OpenAIConfig struct {
+		APIKey  string `mapstructure:"api_key"`
+		BaseURL string `mapstructure:"base_url"`
+		Model   string `mapstructure:"model_name"`
+	} `mapstructure:"openai"`
+	ZhipuConfig struct {
+		APIKey    string `mapstructure:"api_key"`
+		BaseURL   string `mapstructure:"base_url"`
+		ChatModel string `mapstructure:"chat_model"`
+	} `mapstructure:"zhipu"`
 }
 
 func InitConfig() {
@@ -82,23 +95,12 @@ func InitConfig() {
 		}
 
 		v := viper.New()
-		v.SetConfigType("toml")
-		// 自动选择配置文件
-		env := os.Getenv("APP_ENV")
-		switch env {
-		case "production", "prod":
-			v.SetConfigName("config.prod")
-		case "test":
-			v.SetConfigName("config.test")
-		default:
-			v.SetConfigName("config.dev") // 本地开发默认
+		v.SetConfigFile("./backend/config/config.default.toml")
+		if err := v.ReadInConfig(); err != nil {
+			log.Fatalf("加载默认配置失败: %v", err)
 		}
 
-		v.AddConfigPath("./backend/config")
-
-		v.SetEnvPrefix("APP")
-		v.AutomaticEnv()
-		//默认值（防止空值崩溃）
+		// 代码默认值只作为 config.default.toml 缺失字段时的兜底。
 		v.SetDefault("app.name", "wsai")
 		v.SetDefault("app.env", "dev")
 		v.SetDefault("app.port", "9091")
@@ -106,20 +108,41 @@ func InitConfig() {
 		v.SetDefault("jwt.refresh_ttl", "30d")
 		v.SetDefault("rag.qdrant_url", "http://127.0.0.1:6333")
 		v.SetDefault("rag.collection", "wsai_doc_chunks")
-		v.SetDefault("rag.embedding_model", "text-embedding-3-small")
-		v.SetDefault("rag.embedding_size", 1536)
+		v.SetDefault("rag.embedding_model", "embedding-3")
+		v.SetDefault("rag.embedding_size", 1024)
 		v.SetDefault("rag.top_k", 5)
 
-		if err := v.ReadInConfig(); err != nil {
-			log.Printf("警告: 未找到配置文件，使用默认值+环境变量: %v", err)
-		} else {
-			log.Printf("配置文件加载成功: %s", v.ConfigFileUsed())
-		}
-
-		if err := v.Unmarshal(&C); err != nil {
+		C = new(Config)
+		if err := v.Unmarshal(C); err != nil {
 			log.Fatalf("解析配置失败: %v", err)
 		}
+		applyEnvironment(C)
 		log.Printf("配置初始化完成 | 环境: %s | 应用: %s", C.App.Env, C.App.Name)
 	})
 
+}
+
+// applyEnvironment 仅覆盖 .env/进程环境中的敏感项和聊天提供方配置。
+// 先反序列化完整 TOML，再逐字段覆盖，可避免 Viper 绑定嵌套字段时覆盖整组配置。
+func applyEnvironment(c *Config) {
+	override := func(key string, set func(string)) {
+		if value, ok := os.LookupEnv(key); ok {
+			set(value)
+		}
+	}
+
+	override("JWT_SECRET", func(value string) { c.JWTConfig.Secret = value })
+	override("MYSQL_PASSWORD", func(value string) { c.MysqlConfig.Password = value })
+	override("REDIS_PASSWORD", func(value string) { c.RedisConfig.Password = value })
+	override("RABBITMQ_PASSWORD", func(value string) { c.RabbitmqConfig.Password = value })
+	override("EMAIL_EMAIL", func(value string) { c.EmailConfig.Email = value })
+	override("EMAIL_AUTHCODE", func(value string) { c.EmailConfig.Authcode = value })
+
+	override("CHAT_MODEL_PROVIDER", func(value string) { c.ChatConfig.ModelProvider = value })
+	override("OPENAI_API_KEY", func(value string) { c.OpenAIConfig.APIKey = value })
+	override("OPENAI_BASE_URL", func(value string) { c.OpenAIConfig.BaseURL = value })
+	override("OPENAI_MODEL_NAME", func(value string) { c.OpenAIConfig.Model = value })
+	override("ZHIPU_API_KEY", func(value string) { c.ZhipuConfig.APIKey = value })
+	override("ZHIPU_BASE_URL", func(value string) { c.ZhipuConfig.BaseURL = value })
+	override("ZHIPU_CHAT_MODEL", func(value string) { c.ZhipuConfig.ChatModel = value })
 }

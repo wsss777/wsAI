@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"wsai/backend/infra/logger"
 	"wsai/backend/infra/mysql"
 	"wsai/backend/model"
@@ -56,6 +57,31 @@ func GetDocumentByUserNameAndDocumentID(userName, documentID string) (*model.Doc
 		logger.L().Error("GetDocumentByUserNameAndDocumentID error",
 			zap.String("user_name", userName),
 			zap.String("document_id", documentID),
+			zap.Error(err))
+		return nil, err
+	}
+	return document, nil
+}
+
+// FindLatestDocumentByUserNameAndContentHash 查询用户同内容哈希的最新文档；不存在时返回 nil, nil。
+func FindLatestDocumentByUserNameAndContentHash(userName, contentHash string) (*model.Document, error) {
+	if userName == "" || contentHash == "" {
+		return nil, nil
+	}
+
+	document := &model.Document{}
+	err := mysql.DB.
+		Where("user_name = ? AND content_hash = ?", userName, contentHash).
+		Order("updated_at desc").
+		First(document).
+		Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		logger.L().Error("FindLatestDocumentByUserNameAndContentHash error",
+			zap.String("user_name", userName),
+			zap.String("content_hash", contentHash),
 			zap.Error(err))
 		return nil, err
 	}

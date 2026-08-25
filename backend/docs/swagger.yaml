@@ -16,7 +16,6 @@ definitions:
       question:
         type: string
     required:
-    - modelType
     - question
     type: object
   internal_handler_session.GetMeaasgeHistoryResponse:
@@ -50,7 +49,6 @@ definitions:
       sessionId:
         type: string
     required:
-    - modelType
     - question
     - sessionId
     type: object

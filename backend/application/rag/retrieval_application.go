@@ -3,6 +3,7 @@ package rag
 import (
 	"context"
 	"strings"
+	"wsai/backend/config"
 	repo "wsai/backend/infra/mysql/repository"
 	infrarag "wsai/backend/infra/rag"
 )
@@ -32,7 +33,7 @@ func RetrieveContext(ctx context.Context, user, sessionID, question string) (str
 	if err != nil {
 		return "", nil, err
 	}
-	hits, err := infrarag.Search(ctx, vectors[0], user, ids, 5)
+	hits, err := infrarag.Search(ctx, vectors[0], user, ids, config.C.RAGConfig.TopK)
 	if err != nil {
 		return "", nil, err
 	}

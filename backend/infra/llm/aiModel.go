@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"strings"
+	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/ollama"
 	"github.com/cloudwego/eino-ext/components/model/openai"
@@ -18,33 +18,36 @@ type StreamCallback func(msg string)
 type AIModel interface {
 	StreamResponse(ctx context.Context, messages []*schema.Message, cb StreamCallback) (string, error)
 	GetModelType() string
+	GetModelName() string
 }
 
 // OpenAI 模型。
 
 type OpenAIModel struct {
-	llm model.ToolCallingChatModel
+	llm       model.ToolCallingChatModel
+	modelType string
+	modelName string
 }
 
-func NewOpenAIModel(ctx context.Context) (*OpenAIModel, error) {
-	key := os.Getenv("OPENAI_API_KEY")
-	modelName := os.Getenv("OPENAI_MODEL_NAME")
-	baseURL := os.Getenv("OPENAI_BASE_URL")
+// NewOpenAIModel 创建兼容 OpenAI Chat Completions 协议的对话模型。
+// ChatGPT 与智谱 GLM 均通过该协议客户端调用。
+func NewOpenAIModel(ctx context.Context, config ChatProviderConfig) (*OpenAIModel, error) {
 	llm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-		BaseURL: baseURL,
-		Model:   modelName,
-		APIKey:  key,
+		BaseURL: config.BaseURL,
+		Model:   config.Model,
+		APIKey:  config.APIKey,
+		Timeout: 45 * time.Second,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create openai model failed: %v", err)
+		return nil, fmt.Errorf("create %s chat model failed: %w", config.Provider, err)
 	}
-	return &OpenAIModel{llm: llm}, nil
+	return &OpenAIModel{llm: llm, modelType: config.Provider, modelName: config.Model}, nil
 }
 
 func (o *OpenAIModel) StreamResponse(ctx context.Context, messages []*schema.Message, cb StreamCallback) (string, error) {
 	stream, err := o.llm.Stream(ctx, messages)
 	if err != nil {
-		return "", fmt.Errorf("openai stream failed: %v", err)
+		return "", fmt.Errorf("%s stream failed: %w", o.modelType, err)
 	}
 	defer stream.Close()
 
@@ -55,7 +58,7 @@ func (o *OpenAIModel) StreamResponse(ctx context.Context, messages []*schema.Mes
 			break
 		}
 		if err != nil {
-			return "", fmt.Errorf("openai stream recv failed: %v", err)
+			return "", fmt.Errorf("%s stream recv failed: %w", o.modelType, err)
 		}
 		if len(msg.Content) > 0 {
 			fullResp.WriteString(msg.Content)
@@ -66,13 +69,18 @@ func (o *OpenAIModel) StreamResponse(ctx context.Context, messages []*schema.Mes
 	return fullResp.String(), nil
 }
 func (o *OpenAIModel) GetModelType() string {
-	return "OpenAI"
+	return o.modelType
+}
+
+func (o *OpenAIModel) GetModelName() string {
+	return o.modelName
 }
 
 // Ollama 模型。
 
 type OllamaModel struct {
-	llm model.ToolCallingChatModel
+	llm       model.ToolCallingChatModel
+	modelName string
 }
 
 func NewOllamaModel(ctx context.Context, baseURL, modelName string) (*OllamaModel, error) {
@@ -83,7 +91,7 @@ func NewOllamaModel(ctx context.Context, baseURL, modelName string) (*OllamaMode
 	if err != nil {
 		return nil, fmt.Errorf("create ollama model failed: %v", err)
 	}
-	return &OllamaModel{llm: llm}, nil
+	return &OllamaModel{llm: llm, modelName: modelName}, nil
 }
 func (o *OllamaModel) StreamResponse(ctx context.Context, messages []*schema.Message, cb StreamCallback) (string, error) {
 	stream, err := o.llm.Stream(ctx, messages)
@@ -110,4 +118,8 @@ func (o *OllamaModel) StreamResponse(ctx context.Context, messages []*schema.Mes
 }
 func (o *OllamaModel) GetModelType() string {
 	return "Ollama"
+}
+
+func (o *OllamaModel) GetModelName() string {
+	return o.modelName
 }

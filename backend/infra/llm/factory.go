@@ -11,6 +11,7 @@ import (
 
 const (
 	ModelTypeOpenAI = "openai"
+	ModelTypeZhipu  = "zhipu"
 	ModelTypeOllama = "ollama"
 	// 新增模型时在这里加常量
 )
@@ -45,7 +46,20 @@ func GetGlobalFactory() *AIModelFactory {
 func (f *AIModelFactory) registerCreators() {
 	// OpenAI 模型。
 	f.creators[ModelTypeOpenAI] = func(ctx context.Context, config map[string]interface{}) (AIModel, error) {
-		return NewOpenAIModel(ctx)
+		providerConfig, err := LoadChatProviderConfig(ModelTypeOpenAI)
+		if err != nil {
+			return nil, err
+		}
+		return NewOpenAIModel(ctx, providerConfig)
+	}
+
+	// 智谱 GLM 使用 OpenAI 兼容协议。
+	f.creators[ModelTypeZhipu] = func(ctx context.Context, config map[string]interface{}) (AIModel, error) {
+		providerConfig, err := LoadChatProviderConfig(ModelTypeZhipu)
+		if err != nil {
+			return nil, err
+		}
+		return NewOpenAIModel(ctx, providerConfig)
 	}
 
 	// Ollama 模型。
