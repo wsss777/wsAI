@@ -6,8 +6,8 @@ env = "dev"
 enable_register = true
 
 [jwt]
-access_ttl = "24h"
-refresh_ttl = "365d"
+access_ttl = "30m"
+refresh_ttl = "720h"
 issuer = "ws"
 subject = "wsai"
 

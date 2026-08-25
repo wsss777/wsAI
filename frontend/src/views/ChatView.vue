@@ -38,7 +38,7 @@ import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { bindDocuments, fetchDocument, fetchDocuments, fetchHistory, fetchSessionDocuments, fetchSessions, recognizeImage, setChatModelType, streamSessionMessage, unbindDocument, uploadDocument } from '../services/api'
+import { bindDocuments, fetchDocument, fetchDocuments, fetchHistory, fetchSessionDocuments, fetchSessions, logout as logoutRequest, recognizeImage, setChatModelType, streamSessionMessage, unbindDocument, uploadDocument } from '../services/api'
 import { authStore } from '../stores/auth'
 const sessions = ref([]), messages = ref([]), question = ref(''), activeSession = ref(''), sending = ref(false), attachmentOpen = ref(false), pickerOpen = ref(false), documentsLoading = ref(false), documents = ref([]), pickedIds = ref([]), selectedDocuments = ref([]), notice = ref(''), noticeType = ref('info'), messageArea = ref(null)
 const normalizeDocument = item => ({ id: item.document_id, name: item.file_name, status: item.parse_status || 'pending', errorMessage: item.error_message || '' })
@@ -60,7 +60,7 @@ const scrollToBottom = async () => { await nextTick(); messageArea.value?.scroll
 async function loadSessions() { try { sessions.value = (await fetchSessions()).sessions || [] } catch { notify('无法加载历史对话。', 'error') } }
 async function selectSession(id) { activeSession.value = id; selectedDocuments.value = []; try { const [history, sessionDocuments] = await Promise.all([fetchHistory(id), fetchSessionDocuments(id)]); messages.value = history.history || []; selectedDocuments.value = (sessionDocuments.documents || []).map(normalizeDocument); await scrollToBottom() } catch { notify('无法加载该对话。', 'error') } }
 function newChat() { activeSession.value = ''; messages.value = []; selectedDocuments.value = []; question.value = ''; notice.value = '' }
-function logout() { authStore.clear(); router.push('/auth') }
+async function logout() { try { await logoutRequest() } finally { authStore.clear(); router.push('/auth') } }
 async function loadDocuments() { documentsLoading.value = true; try { documents.value = ((await fetchDocuments()).documents || []).map(normalizeDocument) } catch { notify('无法加载资料库。', 'error') } finally { documentsLoading.value = false } }
 async function openDocumentPicker() { attachmentOpen.value = false; pickerOpen.value = true; pickedIds.value = selectedDocuments.value.map(item => item.id); await loadDocuments() }
 async function confirmDocuments() { const selected = documents.value.filter(item => pickedIds.value.includes(item.id)); selectedDocuments.value = selected; pickerOpen.value = false; const ready = selected.filter(item => item.status === 'ready'); const unavailable = selected.find(item => item.status !== 'ready'); if (activeSession.value && ready.length) { try { await bindDocuments(activeSession.value, ready.map(item => item.id)); notify(unavailable ? '可检索资料已添加；其余文档仍在处理中。' : '资料已添加到当前对话。', 'success') } catch (error) { notify(`资料绑定失败：${error.message}`, 'error') } } }

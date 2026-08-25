@@ -12,13 +12,37 @@ func GetMessageBySessionID(sessionID string) ([]model.Message, error) {
 	var messages []model.Message
 	err := mysql.DB.
 		Where("session_id = ?", sessionID).
-		Order("created_at asc").
+		Order("created_at asc, id asc").
 		Find(&messages).Error
 	if err != nil {
 		logger.L().Error("GetMessageBySessionID err",
 			zap.Error(err),
 			zap.String("session_id", sessionID))
 		return nil, err
+	}
+	return messages, nil
+}
+
+// GetRecentMessagesBySessionID 查询会话最近的 limit 条消息，并按时间正序返回。
+func GetRecentMessagesBySessionID(sessionID string, limit int) ([]model.Message, error) {
+	if limit <= 0 {
+		return []model.Message{}, nil
+	}
+	var messages []model.Message
+	err := mysql.DB.
+		Where("session_id = ?", sessionID).
+		Order("created_at desc, id desc").
+		Limit(limit).
+		Find(&messages).Error
+	if err != nil {
+		logger.L().Error("GetRecentMessagesBySessionID err",
+			zap.Error(err),
+			zap.String("session_id", sessionID),
+			zap.Int("limit", limit))
+		return nil, err
+	}
+	for left, right := 0, len(messages)-1; left < right; left, right = left+1, right-1 {
+		messages[left], messages[right] = messages[right], messages[left]
 	}
 	return messages, nil
 }
@@ -30,7 +54,7 @@ func GetMessageBySessionIDs(sessionIDs []string) ([]model.Message, error) {
 	}
 	err := mysql.DB.
 		Where("session_id IN (?)", sessionIDs).
-		Order("created_at asc").
+		Order("created_at asc, id asc").
 		Find(&messages).Error
 	if err != nil {
 		logger.L().Error("GetMessageBySessionIDs err",
@@ -58,7 +82,7 @@ func CreateMessage(message *model.Message) (*model.Message, error) {
 func GetAllMessages() ([]model.Message, error) {
 	var messages []model.Message
 	err := mysql.DB.
-		Order("created_at asc").
+		Order("created_at asc, id asc").
 		Find(&messages).Error
 	if err != nil {
 		logger.L().Error("GetAllMessages err",

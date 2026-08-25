@@ -20,7 +20,7 @@ func Login(username, password string) (string, code.Code) {
 		return "", code.CodeUserNotExist
 	}
 	//判断密码是否正确
-	if userInformation.Password != utils.MD5(password) {
+	if !verifyPasswordAndUpgrade(userInformation, password) {
 		return "", code.CodeInvalidPassword
 	}
 	// 返回令牌。
@@ -38,7 +38,7 @@ func LoginWithEmail(email, password string) (string, code.Code) {
 	if ok, userInformation = user.IsExistUserWithEmail(email); !ok {
 		return "", code.CodeUserNotExist
 	}
-	if userInformation.Password != utils.MD5(password) {
+	if !verifyPasswordAndUpgrade(userInformation, password) {
 		return "", code.CodeInvalidPassword
 	}
 	token, err := jwt.GenerateToken(userInformation.ID, userInformation.Username)
@@ -63,8 +63,12 @@ func Register(email, password, captcha_ string) (string, code.Code) {
 	}
 	//3：生成11位的账号
 	username := utils.GetRandomNumbers(11)
+	passwordHash, err := utils.HashPassword(password)
+	if err != nil {
+		return "", code.CodeServerBusy
+	}
 	//4：注册到数据库中
-	if userInformation, ok = user.Register(username, email, password); !ok {
+	if userInformation, ok = user.Register(username, email, passwordHash); !ok {
 		return "", code.CodeServerBusy
 	}
 	//5：将账号一并发送到对应邮箱上去，后续需要账号登录
@@ -78,6 +82,18 @@ func Register(email, password, captcha_ string) (string, code.Code) {
 	}
 	return token, code.CodeSuccess
 
+}
+
+func verifyPasswordAndUpgrade(userInformation *model.User, password string) bool {
+	matched, needsUpgrade := utils.VerifyPassword(userInformation.Password, password)
+	if !matched {
+		return false
+	}
+	if !needsUpgrade {
+		return true
+	}
+	passwordHash, err := utils.HashPassword(password)
+	return err == nil && user.UpdatePassword(userInformation.ID, passwordHash) == nil
 }
 
 func SendCaptcha(email_ string) code.Code {

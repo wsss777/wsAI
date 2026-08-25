@@ -26,7 +26,7 @@ type RecognizeImageResponse struct {
 // @Accept       multipart/form-data
 // @Produce      json
 // @Param        image  formData  file  true  "要识别的图片文件（支持常见图片格式：jpg,png,gif等）"
-// @Success      200   {object}  image.RecognizeImageResponse{code=common.Response.Code,class_name=string}  "成功返回识别结果"
+// @Success      200   {object}  image.RecognizeImageResponse  "成功返回识别结果"
 // @Failure      200   {object}  image.RecognizeImageResponse  "业务错误（code≠0）也返回 200，这是项目规范"
 // @Router       /api/v1/image/recognize [post]
 func RecognizeImage(c *gin.Context) {

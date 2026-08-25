@@ -19,11 +19,15 @@ type AIHelper struct {
 	model     AIModel
 	messages  []*model.Message
 	muRW      sync.RWMutex
+	streamMu  sync.Mutex
 	SessionID string
 	saveFunc  func(*model.Message) (*model.Message, error)
 }
 
 func (a *AIHelper) StreamResponseWithContext(username string, ctx context.Context, cb StreamCallback, question, knowledge string) (*model.Message, error) {
+	a.streamMu.Lock()
+	defer a.streamMu.Unlock()
+
 	a.AddMessage(question, username, true, true)
 	a.muRW.RLock()
 	messages := utils.ConvertToSchemaMessages(a.messages)
@@ -88,7 +92,11 @@ func (a *AIHelper) AddMessage(Content string, UserName string, IsUser bool, Save
 		UserName:  UserName,
 		IsUser:    IsUser,
 	}
+	a.muRW.Lock()
 	a.messages = append(a.messages, &userMsg)
+	a.messages = trimContextMessages(a.messages)
+	a.muRW.Unlock()
+
 	if Save {
 		if _, err := a.saveFunc(&userMsg); err != nil {
 			logger.L().Warn("Call saveFunc failed ",
@@ -99,6 +107,17 @@ func (a *AIHelper) AddMessage(Content string, UserName string, IsUser bool, Save
 			)
 		}
 	}
+}
+
+func trimContextMessages(messages []*model.Message) []*model.Message {
+	if len(messages) > MaxContextMessages {
+		messages = messages[len(messages)-MaxContextMessages:]
+	}
+	// 上下文从用户提问开始，避免窗口截断后以助手回答开头。
+	if len(messages) > 0 && !messages[0].IsUser {
+		messages = messages[1:]
+	}
+	return messages
 }
 
 // SetSaveFunc 通过回调函数保存消息到数据库，以避免循环依赖。
@@ -120,13 +139,15 @@ func (a *AIHelper) GetAllMessage() []*model.Message {
 func (a *AIHelper) RestoreMessages(messages []*model.Message) {
 	a.muRW.Lock()
 	defer a.muRW.Unlock()
-	a.messages = append([]*model.Message(nil), messages...)
+	a.messages = trimContextMessages(append([]*model.Message(nil), messages...))
 }
 
 // 流式生成
 func (a *AIHelper) StreamResponse(username string,
 	ctx context.Context, cb StreamCallback,
 	userQuestion string) (*model.Message, error) {
+	a.streamMu.Lock()
+	defer a.streamMu.Unlock()
 
 	a.AddMessage(userQuestion, username, true, true)
 	a.muRW.RLock()

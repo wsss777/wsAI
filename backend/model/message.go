@@ -6,11 +6,11 @@ import (
 
 type Message struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	SessionID string    `gorm:"index;not null;type:varchar(36)" json:"session_id"`
+	SessionID string    `gorm:"index;index:idx_message_session_created,priority:1;not null;type:varchar(36)" json:"session_id"`
 	UserName  string    `gorm:"type:varchar(20)" json:"username"`
 	Content   string    `gorm:"type:text" json:"content"`
 	IsUser    bool      `gorm:"not null;" json:"is_user"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time `gorm:"index:idx_message_session_created,priority:2" json:"created_at"`
 }
 
 type History struct {

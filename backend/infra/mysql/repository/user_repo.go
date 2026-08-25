@@ -4,7 +4,6 @@ import (
 	"context"
 	"wsai/backend/infra/mysql"
 	"wsai/backend/model"
-	"wsai/backend/utils"
 )
 
 const (
@@ -35,10 +34,14 @@ func Register(username, email, password string) (*model.User, bool) {
 		Email:    email,
 		Name:     username,
 		Username: username,
-		Password: utils.MD5(password),
+		Password: password,
 	}
 	if err := mysql.DB.Create(user).Error; err != nil {
 		return nil, false
 	}
 	return user, true
+}
+
+func UpdatePassword(userID int64, passwordHash string) error {
+	return mysql.DB.Model(&model.User{}).Where("id = ?", userID).Update("password", passwordHash).Error
 }

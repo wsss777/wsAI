@@ -2,7 +2,7 @@
     "swagger": "2.0",
     "info": {
         "description": "WsAI 项目 Swagger 文档",
-        "title": "WsAI Backend API",
+        "title": "WsAI 后端接口",
         "contact": {},
         "version": "1.0"
     },
@@ -31,7 +31,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_session.GetUserSessionsResponse"
+                            "$ref": "#/definitions/session.GetUserSessionsResponse"
                         }
                     }
                 }
@@ -62,13 +62,13 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_session.CreateSessionAndSendFirstMessageRequest"
+                            "$ref": "#/definitions/session.CreateSessionAndSendFirstMessageRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "SSE error 事件",
+                        "description": "SSE 错误事件",
                         "schema": {
                             "type": "string"
                         }
@@ -107,7 +107,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_session.GetMeaasgeHistoryResponse"
+                            "$ref": "#/definitions/session.GetMeaasgeHistoryResponse"
                         }
                     }
                 }
@@ -145,13 +145,13 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_session.SendMessageStreamRequest"
+                            "$ref": "#/definitions/session.SendMessageStreamRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "SSE error 事件",
+                        "description": "SSE 错误事件",
                         "schema": {
                             "type": "string"
                         }
@@ -185,7 +185,217 @@
                     "200": {
                         "description": "业务错误（code≠0）也返回 200，这是项目规范",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_image.RecognizeImageResponse"
+                            "$ref": "#/definitions/image.RecognizeImageResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rag/documents": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "按更新时间倒序返回当前登录用户上传的全部文档及其解析状态。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RAG 文档管理"
+                ],
+                "summary": "获取知识库文档列表",
+                "responses": {
+                    "200": {
+                        "description": "服务异常；本项目业务错误仍使用 HTTP 200 返回",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "上传 PDF、Markdown 或纯文本文件。当前接口仅保存原始文件和文档记录，初始解析状态为待处理。",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RAG 文档管理"
+                ],
+                "summary": "上传知识库文档",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "待上传的文档，仅支持 .pdf、.md、.txt",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "参数错误或服务异常；本项目业务错误仍使用 HTTP 200 返回",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rag/documents/{document_id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "只能查看当前登录用户拥有的文档；响应包含文件信息、解析状态和切片数量。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RAG 文档管理"
+                ],
+                "summary": "获取知识库文档详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文档 ID",
+                        "name": "document_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "参数错误、文档不存在或无访问权限；本项目业务错误仍使用 HTTP 200 返回",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "删除当前用户拥有的文档记录、会话关联、已保存的切片，以及上传的原始文件目录。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RAG 文档管理"
+                ],
+                "summary": "删除知识库文档",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文档 ID",
+                        "name": "document_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "参数错误、文档不存在或无访问权限；本项目业务错误仍使用 HTTP 200 返回",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rag/sessions/{session_id}/documents": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "仅返回当前登录用户拥有的指定会话关联的文档，按绑定时间正序排列。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RAG 会话关联"
+                ],
+                "summary": "获取会话已绑定的知识库文档",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "会话不存在、无访问权限或服务异常；本项目业务错误仍使用 HTTP 200 返回",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "为当前登录用户拥有的会话关联一个或多个本人文档；重复的关联会被忽略。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "RAG 会话关联"
+                ],
+                "summary": "为会话绑定知识库文档",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "会话 ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "请求体，例如：{\\",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "参数错误、会话或文档不存在、无访问权限或服务异常；本项目业务错误仍使用 HTTP 200 返回",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
                         }
                     }
                 }
@@ -211,7 +421,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.CaptchaRequest"
+                            "$ref": "#/definitions/user.CaptchaRequest"
                         }
                     }
                 ],
@@ -219,19 +429,53 @@
                     "200": {
                         "description": "验证码发送成功",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.CaptchaResponse"
+                            "$ref": "#/definitions/user.CaptchaResponse"
                         }
                     },
                     "400": {
                         "description": "邮箱格式错误",
                         "schema": {
-                            "$ref": "#/definitions/wsai_backend_internal_common.Response"
+                            "$ref": "#/definitions/common.Response"
                         }
                     },
                     "429": {
                         "description": "发送过于频繁",
                         "schema": {
-                            "$ref": "#/definitions/wsai_backend_internal_common.Response"
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/email-login": {
+            "post": {
+                "description": "根据已注册邮箱和密码登录，成功后返回 JWT 令牌。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户认证"
+                ],
+                "summary": "邮箱登录",
+                "parameters": [
+                    {
+                        "description": "邮箱登录参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.EmailLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "参数错误、邮箱不存在或密码错误；业务错误使用 HTTP 200 返回",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
                         }
                     }
                 }
@@ -239,7 +483,7 @@
         },
         "/api/v1/user/login": {
             "post": {
-                "description": "根据用户名和密码登录，返回 JWT token",
+                "description": "根据用户名和密码登录，返回 JWT 令牌",
                 "consumes": [
                     "application/json"
                 ],
@@ -257,27 +501,80 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.LoginRequest"
+                            "$ref": "#/definitions/user.LoginRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "登录成功，返回 token",
+                        "description": "登录成功，返回令牌",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.LoginResponse"
+                            "$ref": "#/definitions/user.LoginResponse"
                         }
                     },
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/wsai_backend_internal_common.Response"
+                            "$ref": "#/definitions/common.Response"
                         }
                     },
                     "401": {
                         "description": "用户名或密码错误",
                         "schema": {
-                            "$ref": "#/definitions/wsai_backend_internal_common.Response"
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/logout": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "吊销当前 Access Token、撤销 Refresh Token，并清除 Refresh Cookie。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户认证"
+                ],
+                "summary": "退出登录",
+                "responses": {
+                    "200": {
+                        "description": "Token 无效或服务异常",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/refresh": {
+            "post": {
+                "description": "浏览器自动携带 wsai_refresh_token Cookie。服务端验证并一次性消费旧 Refresh Token，返回新的 Access Token 并轮换 Cookie。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户认证"
+                ],
+                "summary": "刷新 Access Token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "HttpOnly Refresh Token Cookie（浏览器自动携带）",
+                        "name": "Cookie",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Refresh Token 无效、已过期或服务异常",
+                        "schema": {
+                            "$ref": "#/definitions/common.Response"
                         }
                     }
                 }
@@ -285,7 +582,7 @@
         },
         "/api/v1/user/users": {
             "post": {
-                "description": "通过邮箱、密码和验证码注册新用户，成功后直接返回登录 token",
+                "description": "通过邮箱、密码和验证码注册新用户，成功后直接返回登录令牌",
                 "consumes": [
                     "application/json"
                 ],
@@ -303,27 +600,27 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.RegisterRequest"
+                            "$ref": "#/definitions/user.RegisterRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "注册成功，返回 token",
+                        "description": "注册成功，返回令牌",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler_user.RegisterResponse"
+                            "$ref": "#/definitions/user.RegisterResponse"
                         }
                     },
                     "400": {
                         "description": "参数错误或验证码错误",
                         "schema": {
-                            "$ref": "#/definitions/wsai_backend_internal_common.Response"
+                            "$ref": "#/definitions/common.Response"
                         }
                     },
                     "409": {
                         "description": "用户已存在",
                         "schema": {
-                            "$ref": "#/definitions/wsai_backend_internal_common.Response"
+                            "$ref": "#/definitions/common.Response"
                         }
                     }
                 }
@@ -331,176 +628,7 @@
         }
     },
     "definitions": {
-        "internal_handler_image.RecognizeImageResponse": {
-            "type": "object",
-            "properties": {
-                "class_name": {
-                    "type": "string"
-                },
-                "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
-                },
-                "status_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler_session.CreateSessionAndSendFirstMessageRequest": {
-            "type": "object",
-            "required": [
-                "question"
-            ],
-            "properties": {
-                "modelType": {
-                    "type": "string"
-                },
-                "question": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler_session.GetMeaasgeHistoryResponse": {
-            "type": "object",
-            "properties": {
-                "history": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/wsai_backend_internal_model.History"
-                    }
-                },
-                "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
-                },
-                "status_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler_session.GetUserSessionsResponse": {
-            "type": "object",
-            "properties": {
-                "sessions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/wsai_backend_internal_model.SessionInfo"
-                    }
-                },
-                "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
-                },
-                "status_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler_session.SendMessageStreamRequest": {
-            "type": "object",
-            "required": [
-                "question",
-                "sessionId"
-            ],
-            "properties": {
-                "modelType": {
-                    "type": "string"
-                },
-                "question": {
-                    "type": "string"
-                },
-                "sessionId": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler_user.CaptchaRequest": {
-            "type": "object",
-            "required": [
-                "email"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler_user.CaptchaResponse": {
-            "type": "object",
-            "properties": {
-                "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
-                },
-                "status_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler_user.LoginRequest": {
-            "type": "object",
-            "properties": {
-                "password": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler_user.LoginResponse": {
-            "type": "object",
-            "properties": {
-                "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
-                },
-                "status_msg": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler_user.RegisterRequest": {
-            "type": "object",
-            "required": [
-                "email"
-            ],
-            "properties": {
-                "captcha": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler_user.RegisterResponse": {
-            "type": "object",
-            "properties": {
-                "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
-                },
-                "status_msg": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                }
-            }
-        },
-        "wsai_backend_internal_common.Response": {
-            "type": "object",
-            "properties": {
-                "status_code": {
-                    "$ref": "#/definitions/wsai_backend_internal_common_code.Code"
-                },
-                "status_msg": {
-                    "type": "string"
-                }
-            }
-        },
-        "wsai_backend_internal_common_code.Code": {
+        "code.Code": {
             "type": "integer",
             "format": "int64",
             "enum": [
@@ -540,7 +668,32 @@
                 "AIModelFail"
             ]
         },
-        "wsai_backend_internal_model.History": {
+        "common.Response": {
+            "type": "object",
+            "properties": {
+                "status_code": {
+                    "$ref": "#/definitions/code.Code"
+                },
+                "status_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "image.RecognizeImageResponse": {
+            "type": "object",
+            "properties": {
+                "class_name": {
+                    "type": "string"
+                },
+                "status_code": {
+                    "$ref": "#/definitions/code.Code"
+                },
+                "status_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.History": {
             "type": "object",
             "properties": {
                 "content": {
@@ -551,13 +704,181 @@
                 }
             }
         },
-        "wsai_backend_internal_model.SessionInfo": {
+        "model.SessionInfo": {
             "type": "object",
             "properties": {
                 "sessionId": {
                     "type": "string"
                 },
                 "title": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "session.CreateSessionAndSendFirstMessageRequest": {
+            "type": "object",
+            "required": [
+                "question"
+            ],
+            "properties": {
+                "document_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "modelType": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string"
+                }
+            }
+        },
+        "session.GetMeaasgeHistoryResponse": {
+            "type": "object",
+            "properties": {
+                "history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.History"
+                    }
+                },
+                "status_code": {
+                    "$ref": "#/definitions/code.Code"
+                },
+                "status_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "session.GetUserSessionsResponse": {
+            "type": "object",
+            "properties": {
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.SessionInfo"
+                    }
+                },
+                "status_code": {
+                    "$ref": "#/definitions/code.Code"
+                },
+                "status_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "session.SendMessageStreamRequest": {
+            "type": "object",
+            "required": [
+                "question",
+                "sessionId"
+            ],
+            "properties": {
+                "modelType": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string"
+                },
+                "sessionId": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.CaptchaRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.CaptchaResponse": {
+            "type": "object",
+            "properties": {
+                "status_code": {
+                    "$ref": "#/definitions/code.Code"
+                },
+                "status_msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.EmailLoginRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.LoginRequest": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "status_code": {
+                    "$ref": "#/definitions/code.Code"
+                },
+                "status_msg": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "captcha": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.RegisterResponse": {
+            "type": "object",
+            "properties": {
+                "status_code": {
+                    "$ref": "#/definitions/code.Code"
+                },
+                "status_msg": {
+                    "type": "string"
+                },
+                "token": {
                     "type": "string"
                 }
             }

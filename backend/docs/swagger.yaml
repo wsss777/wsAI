@@ -1,115 +1,6 @@
 basePath: /
 definitions:
-  internal_handler_image.RecognizeImageResponse:
-    properties:
-      class_name:
-        type: string
-      status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
-      status_msg:
-        type: string
-    type: object
-  internal_handler_session.CreateSessionAndSendFirstMessageRequest:
-    properties:
-      modelType:
-        type: string
-      question:
-        type: string
-    required:
-    - question
-    type: object
-  internal_handler_session.GetMeaasgeHistoryResponse:
-    properties:
-      history:
-        items:
-          $ref: '#/definitions/wsai_backend_internal_model.History'
-        type: array
-      status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
-      status_msg:
-        type: string
-    type: object
-  internal_handler_session.GetUserSessionsResponse:
-    properties:
-      sessions:
-        items:
-          $ref: '#/definitions/wsai_backend_internal_model.SessionInfo'
-        type: array
-      status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
-      status_msg:
-        type: string
-    type: object
-  internal_handler_session.SendMessageStreamRequest:
-    properties:
-      modelType:
-        type: string
-      question:
-        type: string
-      sessionId:
-        type: string
-    required:
-    - question
-    - sessionId
-    type: object
-  internal_handler_user.CaptchaRequest:
-    properties:
-      email:
-        type: string
-    required:
-    - email
-    type: object
-  internal_handler_user.CaptchaResponse:
-    properties:
-      status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
-      status_msg:
-        type: string
-    type: object
-  internal_handler_user.LoginRequest:
-    properties:
-      password:
-        type: string
-      username:
-        type: string
-    type: object
-  internal_handler_user.LoginResponse:
-    properties:
-      status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
-      status_msg:
-        type: string
-      token:
-        type: string
-    type: object
-  internal_handler_user.RegisterRequest:
-    properties:
-      captcha:
-        type: string
-      email:
-        type: string
-      password:
-        type: string
-    required:
-    - email
-    type: object
-  internal_handler_user.RegisterResponse:
-    properties:
-      status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
-      status_msg:
-        type: string
-      token:
-        type: string
-    type: object
-  wsai_backend_internal_common.Response:
-    properties:
-      status_code:
-        $ref: '#/definitions/wsai_backend_internal_common_code.Code'
-      status_msg:
-        type: string
-    type: object
-  wsai_backend_internal_common_code.Code:
+  code.Code:
     enum:
     - 1000
     - 2001
@@ -146,25 +37,150 @@ definitions:
     - AIModelNotFind
     - AIModelCannotOpen
     - AIModelFail
-  wsai_backend_internal_model.History:
+  common.Response:
+    properties:
+      status_code:
+        $ref: '#/definitions/code.Code'
+      status_msg:
+        type: string
+    type: object
+  image.RecognizeImageResponse:
+    properties:
+      class_name:
+        type: string
+      status_code:
+        $ref: '#/definitions/code.Code'
+      status_msg:
+        type: string
+    type: object
+  model.History:
     properties:
       content:
         type: string
       is_user:
         type: boolean
     type: object
-  wsai_backend_internal_model.SessionInfo:
+  model.SessionInfo:
     properties:
       sessionId:
         type: string
       title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  session.CreateSessionAndSendFirstMessageRequest:
+    properties:
+      document_ids:
+        items:
+          type: string
+        type: array
+      modelType:
+        type: string
+      question:
+        type: string
+    required:
+    - question
+    type: object
+  session.GetMeaasgeHistoryResponse:
+    properties:
+      history:
+        items:
+          $ref: '#/definitions/model.History'
+        type: array
+      status_code:
+        $ref: '#/definitions/code.Code'
+      status_msg:
+        type: string
+    type: object
+  session.GetUserSessionsResponse:
+    properties:
+      sessions:
+        items:
+          $ref: '#/definitions/model.SessionInfo'
+        type: array
+      status_code:
+        $ref: '#/definitions/code.Code'
+      status_msg:
+        type: string
+    type: object
+  session.SendMessageStreamRequest:
+    properties:
+      modelType:
+        type: string
+      question:
+        type: string
+      sessionId:
+        type: string
+    required:
+    - question
+    - sessionId
+    type: object
+  user.CaptchaRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  user.CaptchaResponse:
+    properties:
+      status_code:
+        $ref: '#/definitions/code.Code'
+      status_msg:
+        type: string
+    type: object
+  user.EmailLoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  user.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  user.LoginResponse:
+    properties:
+      status_code:
+        $ref: '#/definitions/code.Code'
+      status_msg:
+        type: string
+      token:
+        type: string
+    type: object
+  user.RegisterRequest:
+    properties:
+      captcha:
+        type: string
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    type: object
+  user.RegisterResponse:
+    properties:
+      status_code:
+        $ref: '#/definitions/code.Code'
+      status_msg:
+        type: string
+      token:
         type: string
     type: object
 host: localhost:9091
 info:
   contact: {}
   description: WsAI 项目 Swagger 文档
-  title: WsAI Backend API
+  title: WsAI 后端接口
   version: "1.0"
 paths:
   /api/v1/AI/chatMessage/sessions:
@@ -178,7 +194,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler_session.GetUserSessionsResponse'
+            $ref: '#/definitions/session.GetUserSessionsResponse'
       security:
       - ApiKeyAuth: []
       summary: 获取当前用户的所有会话列表
@@ -201,7 +217,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler_session.GetMeaasgeHistoryResponse'
+            $ref: '#/definitions/session.GetMeaasgeHistoryResponse'
       security:
       - ApiKeyAuth: []
       summary: 获取指定会话的全部历史消息
@@ -223,12 +239,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_session.SendMessageStreamRequest'
+          $ref: '#/definitions/session.SendMessageStreamRequest'
       produces:
       - text/event-stream
       responses:
         "200":
-          description: SSE error 事件
+          description: SSE 错误事件
           schema:
             type: string
       security:
@@ -247,12 +263,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_session.CreateSessionAndSendFirstMessageRequest'
+          $ref: '#/definitions/session.CreateSessionAndSendFirstMessageRequest'
       produces:
       - text/event-stream
       responses:
         "200":
-          description: SSE error 事件
+          description: SSE 错误事件
           schema:
             type: string
       security:
@@ -281,10 +297,141 @@ paths:
         "200":
           description: 业务错误（code≠0）也返回 200，这是项目规范
           schema:
-            $ref: '#/definitions/internal_handler_image.RecognizeImageResponse'
+            $ref: '#/definitions/image.RecognizeImageResponse'
       summary: 上传图片进行分类/识别
       tags:
       - 图像识别
+  /api/v1/rag/documents:
+    get:
+      description: 按更新时间倒序返回当前登录用户上传的全部文档及其解析状态。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 服务异常；本项目业务错误仍使用 HTTP 200 返回
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: 获取知识库文档列表
+      tags:
+      - RAG 文档管理
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传 PDF、Markdown 或纯文本文件。当前接口仅保存原始文件和文档记录，初始解析状态为待处理。
+      parameters:
+      - description: 待上传的文档，仅支持 .pdf、.md、.txt
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 参数错误或服务异常；本项目业务错误仍使用 HTTP 200 返回
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: 上传知识库文档
+      tags:
+      - RAG 文档管理
+  /api/v1/rag/documents/{document_id}:
+    delete:
+      description: 删除当前用户拥有的文档记录、会话关联、已保存的切片，以及上传的原始文件目录。
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: document_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 参数错误、文档不存在或无访问权限；本项目业务错误仍使用 HTTP 200 返回
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: 删除知识库文档
+      tags:
+      - RAG 文档管理
+    get:
+      description: 只能查看当前登录用户拥有的文档；响应包含文件信息、解析状态和切片数量。
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: document_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 参数错误、文档不存在或无访问权限；本项目业务错误仍使用 HTTP 200 返回
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: 获取知识库文档详情
+      tags:
+      - RAG 文档管理
+  /api/v1/rag/sessions/{session_id}/documents:
+    get:
+      description: 仅返回当前登录用户拥有的指定会话关联的文档，按绑定时间正序排列。
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 会话不存在、无访问权限或服务异常；本项目业务错误仍使用 HTTP 200 返回
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: 获取会话已绑定的知识库文档
+      tags:
+      - RAG 会话关联
+    post:
+      consumes:
+      - application/json
+      description: 为当前登录用户拥有的会话关联一个或多个本人文档；重复的关联会被忽略。
+      parameters:
+      - description: 会话 ID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      - description: 请求体，例如：{\
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            items:
+              type: string
+            type: array
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 参数错误、会话或文档不存在、无访问权限或服务异常；本项目业务错误仍使用 HTTP 200 返回
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: 为会话绑定知识库文档
+      tags:
+      - RAG 会话关联
   /api/v1/user/captcha:
     post:
       consumes:
@@ -296,82 +443,138 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_user.CaptchaRequest'
+          $ref: '#/definitions/user.CaptchaRequest'
       produces:
       - application/json
       responses:
         "200":
           description: 验证码发送成功
           schema:
-            $ref: '#/definitions/internal_handler_user.CaptchaResponse'
+            $ref: '#/definitions/user.CaptchaResponse'
         "400":
           description: 邮箱格式错误
           schema:
-            $ref: '#/definitions/wsai_backend_internal_common.Response'
+            $ref: '#/definitions/common.Response'
         "429":
           description: 发送过于频繁
           schema:
-            $ref: '#/definitions/wsai_backend_internal_common.Response'
+            $ref: '#/definitions/common.Response'
       summary: 发送邮箱验证码
+      tags:
+      - 用户认证
+  /api/v1/user/email-login:
+    post:
+      consumes:
+      - application/json
+      description: 根据已注册邮箱和密码登录，成功后返回 JWT 令牌。
+      parameters:
+      - description: 邮箱登录参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.EmailLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 参数错误、邮箱不存在或密码错误；业务错误使用 HTTP 200 返回
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 邮箱登录
       tags:
       - 用户认证
   /api/v1/user/login:
     post:
       consumes:
       - application/json
-      description: 根据用户名和密码登录，返回 JWT token
+      description: 根据用户名和密码登录，返回 JWT 令牌
       parameters:
       - description: 登录参数
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_user.LoginRequest'
+          $ref: '#/definitions/user.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: 登录成功，返回 token
+          description: 登录成功，返回令牌
           schema:
-            $ref: '#/definitions/internal_handler_user.LoginResponse'
+            $ref: '#/definitions/user.LoginResponse'
         "400":
           description: 参数错误
           schema:
-            $ref: '#/definitions/wsai_backend_internal_common.Response'
+            $ref: '#/definitions/common.Response'
         "401":
           description: 用户名或密码错误
           schema:
-            $ref: '#/definitions/wsai_backend_internal_common.Response'
+            $ref: '#/definitions/common.Response'
       summary: 用户登录
+      tags:
+      - 用户认证
+  /api/v1/user/logout:
+    post:
+      description: 吊销当前 Access Token、撤销 Refresh Token，并清除 Refresh Cookie。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token 无效或服务异常
+          schema:
+            $ref: '#/definitions/common.Response'
+      security:
+      - ApiKeyAuth: []
+      summary: 退出登录
+      tags:
+      - 用户认证
+  /api/v1/user/refresh:
+    post:
+      description: 浏览器自动携带 wsai_refresh_token Cookie。服务端验证并一次性消费旧 Refresh Token，返回新的
+        Access Token 并轮换 Cookie。
+      parameters:
+      - description: HttpOnly Refresh Token Cookie（浏览器自动携带）
+        in: header
+        name: Cookie
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Refresh Token 无效、已过期或服务异常
+          schema:
+            $ref: '#/definitions/common.Response'
+      summary: 刷新 Access Token
       tags:
       - 用户认证
   /api/v1/user/users:
     post:
       consumes:
       - application/json
-      description: 通过邮箱、密码和验证码注册新用户，成功后直接返回登录 token
+      description: 通过邮箱、密码和验证码注册新用户，成功后直接返回登录令牌
       parameters:
       - description: 注册参数
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_user.RegisterRequest'
+          $ref: '#/definitions/user.RegisterRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: 注册成功，返回 token
+          description: 注册成功，返回令牌
           schema:
-            $ref: '#/definitions/internal_handler_user.RegisterResponse'
+            $ref: '#/definitions/user.RegisterResponse'
         "400":
           description: 参数错误或验证码错误
           schema:
-            $ref: '#/definitions/wsai_backend_internal_common.Response'
+            $ref: '#/definitions/common.Response'
         "409":
           description: 用户已存在
           schema:
-            $ref: '#/definitions/wsai_backend_internal_common.Response'
+            $ref: '#/definitions/common.Response'
       summary: 用户注册
       tags:
       - 用户认证

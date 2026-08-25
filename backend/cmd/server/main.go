@@ -7,14 +7,15 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"strings"
+	"time"
 	"wsai/backend/config"
 	_ "wsai/backend/docs"
 	"wsai/backend/handler"
-	ai "wsai/backend/infra/llm"
 	"wsai/backend/infra/logger"
 	"wsai/backend/infra/mysql"
-	message "wsai/backend/infra/mysql/repository"
 	"wsai/backend/infra/rabbitmq"
 	"wsai/backend/infra/redis"
 
@@ -31,49 +32,14 @@ func StartServer(addr string, port int) error {
 
 }
 
-func readDataFromDB() error {
-	manager := ai.GetGlobalManager()
-
-	msgs, err := message.GetAllMessages()
-	if err != nil {
-		logger.L().Error("从数据库加载所有信息失败",
-			zap.Error(err))
-		return err
-	}
-	if len(msgs) == 0 {
-		logger.L().Info("数据库无历史消息，无需恢复")
-		return nil
-	}
-	logger.L().Info("开始从数据库恢复会话消息",
-		zap.Int("total_messages", len(msgs)),
-	)
-	for i := range msgs {
-		msg := &msgs[i]
-		modelType, err := ai.DefaultChatModelType()
-		if err != nil {
-			return err
-		}
-
-		helper, err := manager.GetOrCreateAIHelper(msg.UserName, msg.SessionID, modelType, nil)
-		if err != nil {
-			logger.L().Error("创建获取AIHelper失败",
-				zap.String("username", msg.UserName),
-				zap.String("sessionID", msg.SessionID),
-				zap.Error(err),
-			)
-			continue
-		}
-		helper.AddMessage(msg.Content, msg.UserName, msg.IsUser, false)
-		logger.L().Debug("成功恢复会话消息",
-			zap.String("username", msg.UserName),
-			zap.String("session_id", msg.SessionID),
-		)
-	}
-	return nil
-}
-
 func main() {
 	config.InitConfig()
+	if len(strings.TrimSpace(config.C.JWTConfig.Secret)) < 32 {
+		log.Fatal("JWT_SECRET 未配置或长度不足 32 字节")
+	}
+	if ttl, err := time.ParseDuration(config.C.JWTConfig.AccessTTL); err != nil || ttl <= 0 {
+		log.Fatal("jwt.access_ttl 必须是正的 Go duration，例如 30m")
+	}
 	isProd := config.C.App.Env == "prod"
 	if isProd {
 		gin.SetMode(gin.ReleaseMode)
@@ -100,7 +66,6 @@ func main() {
 			"MySQL 初始化失败，无法继续运行", zap.Error(err))
 	}
 
-	readDataFromDB()
 	if err := redis.Init(); err != nil {
 		logger.L().Error("Redis 初始化失败，将影响相关功能", zap.Error(err))
 	}

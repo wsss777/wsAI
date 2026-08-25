@@ -21,6 +21,8 @@ func InitRouter() *gin.Engine {
 	api.POST("/user/login", user.Login)
 	api.POST("/user/email-login", user.EmailLogin)
 	api.POST("/user/captcha", user.HandleCaptcha)
+	api.POST("/user/logout", jwt.AuthMiddleware(), user.Logout)
+	api.POST("/user/refresh", user.Refresh)
 
 	ai := api.Group("/AI")
 	ai.Use(jwt.AuthMiddleware())

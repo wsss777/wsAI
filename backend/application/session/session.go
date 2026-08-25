@@ -165,18 +165,20 @@ func ChatStreamSend(userName string, sessionID string, userQuestion string, mode
 }
 
 func GetChatHistory(userName string, sessionID string) ([]model.History, code.Code) {
-	manager := ai.GetGlobalManager()
-	helper, exists := manager.GetAIHelper(userName, sessionID)
-	if !exists {
+	sessionInfo, err := session.GetSessionByID(sessionID)
+	if err != nil || sessionInfo.UserName != userName {
 		return nil, code.CodeServerBusy
 	}
-	messages := helper.GetAllMessage()
+	messages, err := session.GetMessageBySessionID(sessionID)
+	if err != nil {
+		logger.L().Error("GetChatHistory get messages error", zap.String("session_id", sessionID), zap.Error(err))
+		return nil, code.CodeServerBusy
+	}
 	history := make([]model.History, 0, len(messages))
 
-	for i, msg := range messages {
-		isUser := i%2 == 0
+	for _, msg := range messages {
 		history = append(history, model.History{
-			IsUser:  isUser,
+			IsUser:  msg.IsUser,
 			Content: msg.Content,
 		})
 	}

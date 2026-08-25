@@ -2,6 +2,8 @@ package user
 
 import (
 	"net/http"
+	"time"
+	jwtmiddleware "wsai/backend/handler/middleware/jwt"
 	"wsai/backend/response"
 	"wsai/backend/response/code"
 
@@ -9,6 +11,109 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// Logout 退出登录并吊销当前会话凭证。
+// @Summary      退出登录
+// @Description  吊销当前 Access Token、撤销 Refresh Token，并清除 Refresh Cookie。
+// @Tags         用户认证
+// @Produce      json
+// @Security     ApiKeyAuth
+// @Success      200  {object}  common.Response  "退出成功"
+// @Failure      200  {object}  common.Response  "Token 无效或服务异常"
+// @Router       /api/v1/user/logout [post]
+func Logout(c *gin.Context) {
+	res := new(common.Response)
+	token, tokenOK := c.Get("jwt_token")
+	claims, claimsOK := c.Get("jwt_claims")
+	if !tokenOK || !claimsOK {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidToken))
+		return
+	}
+	jwtClaims, ok := claims.(*jwtmiddleware.Claims)
+	if !ok || jwtClaims.ExpiresAt == nil {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidToken))
+		return
+	}
+	if err := jwtmiddleware.AddTokenToBlacklist(c.Request.Context(), token.(string), jwtClaims.ExpiresAt.Time); err != nil {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
+		return
+	}
+	if refreshToken, err := c.Cookie("wsai_refresh_token"); err == nil {
+		_ = jwtmiddleware.RevokeRefreshToken(c.Request.Context(), refreshToken)
+	}
+	c.SetCookie("wsai_refresh_token", "", -1, "/api/v1/user", "", false, true)
+	res.Success()
+	c.JSON(http.StatusOK, res)
+}
+
+// Refresh 使用 HttpOnly Refresh Cookie 轮换令牌。
+// @Summary      刷新 Access Token
+// @Description  浏览器自动携带 wsai_refresh_token Cookie。服务端验证并一次性消费旧 Refresh Token，返回新的 Access Token 并轮换 Cookie。
+// @Tags         用户认证
+// @Produce      json
+// @Param        Cookie  header  string  false  "HttpOnly Refresh Token Cookie（浏览器自动携带）"
+// @Success      200  {object}  LoginResponse  "刷新成功，返回新的 Access Token"
+// @Failure      200  {object}  common.Response  "Refresh Token 无效、已过期或服务异常"
+// @Router       /api/v1/user/refresh [post]
+func Refresh(c *gin.Context) {
+	res := new(LoginResponse)
+	refreshToken, err := c.Cookie("wsai_refresh_token")
+	if err != nil {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidToken))
+		return
+	}
+	claims, err := jwtmiddleware.ParseToken(refreshToken)
+	if err != nil || claims.TokenType != "refresh" {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidToken))
+		return
+	}
+	ok, err := jwtmiddleware.ConsumeRefreshToken(c.Request.Context(), refreshToken)
+	if err != nil {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidToken))
+		return
+	}
+	accessToken, err := jwtmiddleware.GenerateToken(claims.Id, claims.Username)
+	if err != nil {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
+		return
+	}
+	if err := setRefreshCookie(c, claims.Id, claims.Username); err != nil {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
+		return
+	}
+	res.Success()
+	res.Token = accessToken
+	c.JSON(http.StatusOK, res)
+}
+
+func setRefreshCookie(c *gin.Context, id int64, username string) error {
+	token, err := jwtmiddleware.GenerateRefreshToken(id, username)
+	if err != nil {
+		return err
+	}
+	claims, err := jwtmiddleware.ParseToken(token)
+	if err != nil {
+		return err
+	}
+	if err := jwtmiddleware.StoreRefreshToken(c.Request.Context(), token, claims.ExpiresAt.Time); err != nil {
+		return err
+	}
+	seconds := int(time.Until(claims.ExpiresAt.Time).Seconds())
+	c.SetCookie("wsai_refresh_token", token, seconds, "/api/v1/user", "", false, true)
+	return nil
+}
+
+func setRefreshCookieForAccess(c *gin.Context, accessToken string) error {
+	claims, err := jwtmiddleware.ParseToken(accessToken)
+	if err != nil {
+		return err
+	}
+	return setRefreshCookie(c, claims.Id, claims.Username)
+}
 
 type (
 	LoginRequest struct {
@@ -65,6 +170,10 @@ func Login(c *gin.Context) {
 	}
 	res.Success()
 	res.Token = token
+	if err := setRefreshCookieForAccess(c, token); err != nil {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
+		return
+	}
 	c.JSON(http.StatusOK, res)
 }
 
@@ -92,6 +201,10 @@ func EmailLogin(c *gin.Context) {
 	}
 	res.Success()
 	res.Token = token
+	if err := setRefreshCookieForAccess(c, token); err != nil {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
+		return
+	}
 	c.JSON(http.StatusOK, res)
 }
 
@@ -121,6 +234,10 @@ func Register(c *gin.Context) {
 	}
 	res.Success()
 	res.Token = token
+	if err := setRefreshCookieForAccess(c, token); err != nil {
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
+		return
+	}
 	c.JSON(http.StatusOK, res)
 }
 

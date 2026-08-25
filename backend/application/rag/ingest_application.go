@@ -54,7 +54,6 @@ func IngestDocument(doc *model.Document) {
 		fail(err)
 		return
 	}
-	_ = repo.DeleteChunksByDocumentID(doc.DocumentID)
 	if _, err = repo.BatchCreateChunks(models); err != nil {
 		fail(err)
 		return

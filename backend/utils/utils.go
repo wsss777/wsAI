@@ -2,6 +2,7 @@ package utils
 
 import (
 	"crypto/md5"
+	"crypto/subtle"
 	"encoding/hex"
 	"math/rand"
 	"wsai/backend/model"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/cloudwego/eino/schema"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func GetRandomNumbers(num int) string {
@@ -31,6 +33,19 @@ func MD5(str string) string {
 	h := md5.New()
 	h.Write([]byte(str))
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func HashPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(hash), err
+}
+
+// VerifyPassword 同时兼容历史 MD5，成功登录后调用方应升级为 bcrypt。
+func VerifyPassword(storedHash, password string) (matched bool, needsUpgrade bool) {
+	if len(storedHash) == 32 {
+		return subtle.ConstantTimeCompare([]byte(storedHash), []byte(MD5(password))) == 1, true
+	}
+	return bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(password)) == nil, false
 }
 func GenerateUUID() string {
 	return uuid.New().String()
