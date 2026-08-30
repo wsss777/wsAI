@@ -6,6 +6,7 @@ import (
 	"wsai/backend/model"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm/clause"
 )
 
 func GetMessageBySessionID(sessionID string) ([]model.Message, error) {
@@ -77,6 +78,26 @@ func CreateMessage(message *model.Message) (*model.Message, error) {
 		return nil, err
 	}
 	return message, nil
+}
+
+// CreateMessageIfAbsent 通过 message_id 的唯一索引实现消息幂等落库。
+// 返回 false, nil 表示消息已经成功落库过，消费者应 Ack 而不是重试。
+func CreateMessageIfAbsent(message *model.Message) (bool, error) {
+	result := mysql.DB.
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "message_id"}},
+			DoNothing: true,
+		}).
+		Create(message)
+	if result.Error != nil {
+		logger.L().Error("CreateMessageIfAbsent err",
+			zap.Error(result.Error),
+			zap.String("message_id", message.MessageID),
+			zap.String("session_id", message.SessionID),
+		)
+		return false, result.Error
+	}
+	return result.RowsAffected == 1, nil
 }
 
 func GetAllMessages() ([]model.Message, error) {

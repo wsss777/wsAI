@@ -10,6 +10,7 @@ import (
 	"wsai/backend/utils"
 
 	"github.com/cloudwego/eino/schema"
+	"github.com/google/uuid"
 
 	"go.uber.org/zap"
 )
@@ -38,7 +39,7 @@ func (a *AIHelper) StreamResponseWithContext(username string, ctx context.Contex
 	} else if providerName == ModelTypeOpenAI {
 		providerName = "ChatGPT / OpenAI 兼容服务"
 	}
-	formatInstruction := fmt.Sprintf("当前本次回答由“%s”提供，模型标识为“%s”。当用户询问你是什么模型、是否为 ChatGPT 或 GLM 时，必须按此配置如实回答；不得声称不知道、无法查看，或说自己是其他提供方。请使用清晰、简洁的 Markdown 回复；仅在确有多层结构时使用标题，普通问答不要使用 # 标题。", providerName, a.model.GetModelName())
+	formatInstruction := fmt.Sprintf("当前本次回答由“%s”提供，模型标识为“%s”。当用户询问你是什么模型、是否为 ChatGPT 或 GLM 时，必须按此配置如实回答；不得声称不知道、无法查看，或说自己是其他提供方。请使用清晰、简洁的 Markdown 回复；仅在确有多层结构时使用标题，普通问答不要使用 # 标题。所有标题、列表项和代码块必须各自从新行开始，标题标记 # 后必须有空格；不要把 ##、- 或数字列表接在正文或公式末尾。行内数学公式使用 $...$，独立公式使用 $$...$$。", providerName, a.model.GetModelName())
 	systemMessages := []*schema.Message{{Role: schema.System, Content: formatInstruction}}
 	if knowledge != "" {
 		systemMessages = append(systemMessages, &schema.Message{Role: schema.System, Content: "请仅依据以下资料回答；资料不足时明确说明。\n\n" + knowledge})
@@ -58,7 +59,7 @@ func NewAIHelper(model_ AIModel, SessionID string) *AIHelper {
 		model:    model_,
 		messages: make([]*model.Message, 0, 20),
 		saveFunc: func(msg *model.Message) (*model.Message, error) {
-			data, genErr := rabbitmq.GenerateMessageMQPara(msg.SessionID, msg.Content, msg.UserName, msg.IsUser)
+			data, genErr := rabbitmq.GenerateMessageMQPara(msg.MessageID, msg.SessionID, msg.Content, msg.UserName, msg.IsUser)
 			if genErr != nil {
 				logger.L().Error("Generate RabbitMQ message param failed",
 					zap.Error(genErr),
@@ -87,6 +88,7 @@ func NewAIHelper(model_ AIModel, SessionID string) *AIHelper {
 // addMessage 将消息添加到内存中，并调用自定义存储函数。
 func (a *AIHelper) AddMessage(Content string, UserName string, IsUser bool, Save bool) {
 	userMsg := model.Message{
+		MessageID: uuid.NewString(),
 		SessionID: a.SessionID,
 		Content:   Content,
 		UserName:  UserName,

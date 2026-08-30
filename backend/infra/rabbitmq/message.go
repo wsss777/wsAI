@@ -13,6 +13,7 @@ import (
 
 // MessageMQPara 定义投递到 RabbitMQ 的消息参数结构
 type MessageMQPara struct {
+	MessageID string `json:"message_id"`
 	SessionID string `json:"session_id"`
 	Content   string `json:"content"`
 	Username  string `json:"username"`
@@ -20,8 +21,9 @@ type MessageMQPara struct {
 }
 
 // GenerateMessageMQPara 生成要发送到消息队列的 JSON 字节。
-func GenerateMessageMQPara(sessionID string, content string, username string, isUser bool) ([]byte, error) {
+func GenerateMessageMQPara(messageID string, sessionID string, content string, username string, isUser bool) ([]byte, error) {
 	para := MessageMQPara{
+		MessageID: messageID,
 		SessionID: sessionID,
 		Content:   content,
 		Username:  username,
@@ -48,10 +50,10 @@ func ProcessMessageDelivery(msg *amqp.Delivery) error {
 			zap.Error(err),
 			zap.Uint64("delivery_tag", msg.DeliveryTag),
 		)
-		msg.Nack(false, true)
 		return err
 	}
 	logger.L().Info("RabbitMQ received message",
+		zap.String("message_id", para.MessageID),
 		zap.String("session_id", para.SessionID),
 		zap.String("user_name", para.Username),
 		zap.Bool("is_user", para.IsUser),
@@ -60,27 +62,35 @@ func ProcessMessageDelivery(msg *amqp.Delivery) error {
 	)
 
 	newMsg := &model.Message{
+		MessageID: para.MessageID,
 		SessionID: para.SessionID,
 		Content:   para.Content,
 		UserName:  para.Username,
 		IsUser:    para.IsUser,
 		CreatedAt: time.Now(),
 	}
-	if _, err := message.CreateMessage(newMsg); err != nil {
+	created, err := message.CreateMessageIfAbsent(newMsg)
+	if err != nil {
 		logger.L().Error("Save chatMessage message to DB failed",
 			zap.Error(err),
+			zap.String("message_id", newMsg.MessageID),
 			zap.String("session_id", newMsg.SessionID),
 			zap.Uint64("delivery_tag", msg.DeliveryTag),
 			zap.String("username", newMsg.UserName),
 		)
-		// 保存失败：拒绝消息并重新入队，让当前或其他消费者重试。
-		msg.Nack(false, true)
 		return err
 	}
+	if !created {
+		logger.L().Info("RabbitMQ duplicate message ignored",
+			zap.String("message_id", newMsg.MessageID),
+			zap.Uint64("delivery_tag", msg.DeliveryTag),
+		)
+		return nil
+	}
 	logger.L().Debug("Chat message saved to DB successfully",
+		zap.String("message_id", newMsg.MessageID),
 		zap.String("session_id", newMsg.SessionID),
 		zap.Uint64("delivery_tag", msg.DeliveryTag),
 	)
-	msg.Ack(false)
 	return nil
 }

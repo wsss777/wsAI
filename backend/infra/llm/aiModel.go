@@ -16,9 +16,18 @@ import (
 type StreamCallback func(msg string)
 
 type AIModel interface {
+	GenerateResponse(ctx context.Context, messages []*schema.Message) (string, error)
 	StreamResponse(ctx context.Context, messages []*schema.Message, cb StreamCallback) (string, error)
 	GetModelType() string
 	GetModelName() string
+}
+
+func (o *OpenAIModel) GenerateResponse(ctx context.Context, messages []*schema.Message) (string, error) {
+	response, err := o.llm.Generate(ctx, messages)
+	if err != nil {
+		return "", fmt.Errorf("%s generate failed: %w", o.modelType, err)
+	}
+	return response.Content, nil
 }
 
 // OpenAI 模型。
@@ -36,7 +45,7 @@ func NewOpenAIModel(ctx context.Context, config ChatProviderConfig) (*OpenAIMode
 		BaseURL: config.BaseURL,
 		Model:   config.Model,
 		APIKey:  config.APIKey,
-		Timeout: 150 * time.Second,
+		Timeout: 300 * time.Second,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create %s chat model failed: %w", config.Provider, err)
@@ -115,6 +124,13 @@ func (o *OllamaModel) StreamResponse(ctx context.Context, messages []*schema.Mes
 
 	}
 	return fullResp.String(), nil
+}
+func (o *OllamaModel) GenerateResponse(ctx context.Context, messages []*schema.Message) (string, error) {
+	response, err := o.llm.Generate(ctx, messages)
+	if err != nil {
+		return "", fmt.Errorf("ollama generate failed: %w", err)
+	}
+	return response.Content, nil
 }
 func (o *OllamaModel) GetModelType() string {
 	return "Ollama"

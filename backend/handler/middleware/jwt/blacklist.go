@@ -13,6 +13,16 @@ import (
 const blacklistKeyPrefix = "jwt:blacklist:"
 const refreshKeyPrefix = "jwt:refresh:"
 
+const rotateRefreshTokenScript = `
+local current = redis.call("GET", KEYS[1])
+if current ~= "1" then
+  return 0
+end
+redis.call("SET", KEYS[2], "1", "PX", ARGV[1])
+redis.call("DEL", KEYS[1])
+return 1
+`
+
 func AddTokenToBlacklist(ctx context.Context, token string, expireAt time.Time) error {
 	if redisclient.Rdb == nil {
 		return errors.New("Redis 客户端未初始化")
@@ -49,6 +59,23 @@ func ConsumeRefreshToken(ctx context.Context, token string) (bool, error) {
 		return false, err
 	}
 	return value == "1", nil
+}
+
+// RotateRefreshToken 原子地校验并轮换 Refresh Token，避免新令牌写入失败时旧令牌已被提前删除。
+func RotateRefreshToken(ctx context.Context, oldToken, newToken string, newExpireAt time.Time) (bool, error) {
+	if redisclient.Rdb == nil {
+		return false, errors.New("Redis 客户端未初始化")
+	}
+	ttl := time.Until(newExpireAt)
+	if ttl <= 0 {
+		return false, errors.New("新 refresh token 已过期")
+	}
+	result, err := redisclient.Rdb.Eval(ctx, rotateRefreshTokenScript,
+		[]string{refreshKey(oldToken), refreshKey(newToken)}, ttl.Milliseconds()).Int64()
+	if err != nil {
+		return false, err
+	}
+	return result == 1, nil
 }
 
 func RevokeRefreshToken(ctx context.Context, token string) error {

@@ -4,12 +4,14 @@ import (
 	"net/http"
 	"time"
 	jwtmiddleware "wsai/backend/handler/middleware/jwt"
+	"wsai/backend/infra/logger"
 	"wsai/backend/response"
 	"wsai/backend/response/code"
 
 	"wsai/backend/application/user"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // Logout 退出登录并吊销当前会话凭证。
@@ -59,52 +61,76 @@ func Refresh(c *gin.Context) {
 	res := new(LoginResponse)
 	refreshToken, err := c.Cookie("wsai_refresh_token")
 	if err != nil {
+		logger.L().Warn("刷新令牌失败：请求未携带 Cookie", zap.String("origin", c.GetHeader("Origin")), zap.Error(err))
 		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidToken))
 		return
 	}
 	claims, err := jwtmiddleware.ParseToken(refreshToken)
 	if err != nil || claims.TokenType != "refresh" {
-		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidToken))
-		return
-	}
-	ok, err := jwtmiddleware.ConsumeRefreshToken(c.Request.Context(), refreshToken)
-	if err != nil {
-		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
-		return
-	}
-	if !ok {
+		logger.L().Warn("刷新令牌失败：Cookie 中的令牌无效", zap.Error(err))
 		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidToken))
 		return
 	}
 	accessToken, err := jwtmiddleware.GenerateToken(claims.Id, claims.Username)
 	if err != nil {
+		logger.L().Error("刷新令牌失败：生成 Access Token 失败", zap.String("username", claims.Username), zap.Error(err))
 		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
 		return
 	}
-	if err := setRefreshCookie(c, claims.Id, claims.Username); err != nil {
+	newRefreshToken, refreshExpireAt, err := newRefreshToken(claims.Id, claims.Username)
+	if err != nil {
+		logger.L().Error("刷新令牌失败：生成新 Refresh Token 失败", zap.String("username", claims.Username), zap.Error(err))
 		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
 		return
 	}
+	ok, err := jwtmiddleware.RotateRefreshToken(c.Request.Context(), refreshToken, newRefreshToken, refreshExpireAt)
+	if err != nil {
+		logger.L().Error("刷新令牌失败：Redis 轮换失败", zap.String("username", claims.Username), zap.Error(err))
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeServerBusy))
+		return
+	}
+	if !ok {
+		logger.L().Warn("刷新令牌失败：Redis 中不存在或已消费", zap.String("username", claims.Username))
+		c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidToken))
+		return
+	}
+	setRefreshCookieValue(c, newRefreshToken, refreshExpireAt)
+	logger.L().Info("刷新令牌成功", zap.String("username", claims.Username))
 	res.Success()
 	res.Token = accessToken
 	c.JSON(http.StatusOK, res)
 }
 
 func setRefreshCookie(c *gin.Context, id int64, username string) error {
+	token, expireAt, err := newRefreshToken(id, username)
+	if err != nil {
+		return err
+	}
+	if err := jwtmiddleware.StoreRefreshToken(c.Request.Context(), token, expireAt); err != nil {
+		return err
+	}
+	setRefreshCookieValue(c, token, expireAt)
+	return nil
+}
+
+func newRefreshToken(id int64, username string) (string, time.Time, error) {
 	token, err := jwtmiddleware.GenerateRefreshToken(id, username)
 	if err != nil {
-		return err
+		return "", time.Time{}, err
 	}
 	claims, err := jwtmiddleware.ParseToken(token)
-	if err != nil {
-		return err
+	if err != nil || claims.ExpiresAt == nil {
+		if err == nil {
+			err = http.ErrNoCookie
+		}
+		return "", time.Time{}, err
 	}
-	if err := jwtmiddleware.StoreRefreshToken(c.Request.Context(), token, claims.ExpiresAt.Time); err != nil {
-		return err
-	}
-	seconds := int(time.Until(claims.ExpiresAt.Time).Seconds())
+	return token, claims.ExpiresAt.Time, nil
+}
+
+func setRefreshCookieValue(c *gin.Context, token string, expireAt time.Time) {
+	seconds := int(time.Until(expireAt).Seconds())
 	c.SetCookie("wsai_refresh_token", token, seconds, "/api/v1/user", "", false, true)
-	return nil
 }
 
 func setRefreshCookieForAccess(c *gin.Context, accessToken string) error {

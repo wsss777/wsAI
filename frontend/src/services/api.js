@@ -1,5 +1,42 @@
 import { authStore } from '../stores/auth'
-async function request(path, options = {}, retried = false) { const response = await fetch(`${authStore.apiBaseUrl.value}${path}`, { ...options, credentials: 'include', headers: { ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...(authStore.token.value ? { Authorization: `Bearer ${authStore.token.value}` } : {}), ...options.headers } }); const data = await response.json().catch(() => ({})); if (!retried && path !== '/user/refresh' && data.status_code === 2006) { const refreshed = await fetch(`${authStore.apiBaseUrl.value}/user/refresh`, { method: 'POST', credentials: 'include' }); const refreshData = await refreshed.json().catch(() => ({})); if (refreshed.ok && refreshData.status_code === 1000 && refreshData.token) { authStore.setToken(refreshData.token); return request(path, options, true) } authStore.clear() } if (!response.ok || data.status_code && data.status_code !== 1000) throw new Error(data.status_msg || `HTTP ${response.status}`); return data }
+let refreshInFlight = null
+
+async function refreshAccessToken() {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${authStore.apiBaseUrl.value}/user/refresh`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+      .then(async response => {
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok || data.status_code !== 1000 || !data.token) return ''
+        authStore.setToken(data.token)
+        return data.token
+      })
+      .catch(() => '')
+      .finally(() => { refreshInFlight = null })
+  }
+  return refreshInFlight
+}
+
+async function request(path, options = {}, retried = false) {
+  const response = await fetch(`${authStore.apiBaseUrl.value}${path}`, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(authStore.token.value ? { Authorization: `Bearer ${authStore.token.value}` } : {}),
+      ...options.headers
+    }
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!retried && path !== '/user/refresh' && data.status_code === 2006) {
+    if (await refreshAccessToken()) return request(path, options, true)
+    authStore.clear()
+  }
+  if (!response.ok || data.status_code && data.status_code !== 1000) throw new Error(data.status_msg || `HTTP ${response.status}`)
+  return data
+}
 export const login = payload => request('/user/login', { method: 'POST', body: JSON.stringify(payload) })
 export const loginWithEmail = payload => request('/user/email-login', { method: 'POST', body: JSON.stringify(payload) })
 export const register = payload => request('/user/users', { method: 'POST', body: JSON.stringify(payload) })

@@ -35,6 +35,8 @@
 
 <script setup>
 import DOMPurify from 'dompurify'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 import { marked } from 'marked'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
@@ -45,7 +47,35 @@ const normalizeDocument = item => ({ id: item.document_id, name: item.file_name,
 const router = useRouter()
 const initials = computed(() => authStore.username.value.slice(0, 2).toUpperCase())
 const notify = (text, type = 'info') => { notice.value = text; noticeType.value = type }
-const renderMessage = (content, isUser) => isUser ? DOMPurify.sanitize(content).replace(/\n/g, '<br>') : DOMPurify.sanitize(marked.parse(content, { gfm: true, breaks: true }))
+function normalizeAssistantMarkdown(content) {
+  const normalizeSegment = segment => segment
+    .replace(/(^|[。！？；：\]])[ \t]*(#{1,6})[ \t]+/gm, '$1\n\n$2 ')
+    .replace(/([。！？；])[ \t]*[-*][ \t]+/g, '$1\n\n- ')
+    .replace(/([。！？；])[ \t]*(\d+)\.[ \t]+/g, '$1\n\n$2. ')
+  return String(content).split(/(```[\s\S]*?```)/g).map((segment, index) => index % 2 ? segment : normalizeSegment(segment)).join('')
+}
+
+function renderMath(content) {
+  const formulas = []
+  const placeholder = (expression, displayMode) => {
+    const token = `@@KATEX_${formulas.length}@@`
+    formulas.push({ token, html: katex.renderToString(expression.trim(), { displayMode, throwOnError: false, strict: 'ignore' }) })
+    return token
+  }
+  const withPlaceholders = content
+    .replace(/\$\$([\s\S]+?)\$\$/g, (_, expression) => placeholder(expression, true))
+    .replace(/\\\[([\s\S]+?)\\\]/g, (_, expression) => placeholder(expression, true))
+    .replace(/\\\(([^\n]+?)\\\)/g, (_, expression) => placeholder(expression, false))
+    .replace(/\$([^$\n]+?)\$/g, (_, expression) => placeholder(expression, false))
+  let html = marked.parse(withPlaceholders, { gfm: true, breaks: true })
+  for (const formula of formulas) html = html.replaceAll(formula.token, formula.html)
+  return html
+}
+
+const renderMessage = (content, isUser) => isUser
+  ? DOMPurify.sanitize(content).replace(/\n/g, '<br>')
+  : DOMPurify.sanitize(renderMath(content), { ADD_TAGS: ['math', 'semantics', 'annotation'], ADD_ATTR: ['xmlns', 'encoding'] })
+const formatAssistantMessage = message => { message.content = normalizeAssistantMarkdown(message.content) }
 const displaySessionTitle = session => String(session?.title || '未命名对话')
 function formatSessionTime(value) {
   if (!value) return '更新时间未知'
@@ -58,7 +88,7 @@ function formatSessionTime(value) {
 }
 const scrollToBottom = async () => { await nextTick(); messageArea.value?.scrollTo({ top: messageArea.value.scrollHeight, behavior: 'smooth' }) }
 async function loadSessions() { try { sessions.value = (await fetchSessions()).sessions || [] } catch { notify('无法加载历史对话。', 'error') } }
-async function selectSession(id) { activeSession.value = id; selectedDocuments.value = []; try { const [history, sessionDocuments] = await Promise.all([fetchHistory(id), fetchSessionDocuments(id)]); messages.value = history.history || []; selectedDocuments.value = (sessionDocuments.documents || []).map(normalizeDocument); await scrollToBottom() } catch { notify('无法加载该对话。', 'error') } }
+async function selectSession(id) { activeSession.value = id; selectedDocuments.value = []; try { const [history, sessionDocuments] = await Promise.all([fetchHistory(id), fetchSessionDocuments(id)]); messages.value = (history.history || []).map(item => item.is_user ? item : { ...item, content: normalizeAssistantMarkdown(item.content) }); selectedDocuments.value = (sessionDocuments.documents || []).map(normalizeDocument); await scrollToBottom() } catch { notify('无法加载该对话。', 'error') } }
 function newChat() { activeSession.value = ''; messages.value = []; selectedDocuments.value = []; question.value = ''; notice.value = '' }
 async function logout() { try { await logoutRequest() } finally { authStore.clear(); router.push('/auth') } }
 async function loadDocuments() { documentsLoading.value = true; try { documents.value = ((await fetchDocuments()).documents || []).map(normalizeDocument) } catch { notify('无法加载资料库。', 'error') } finally { documentsLoading.value = false } }
@@ -83,7 +113,7 @@ async function waitForDocument(document) {
 }
 async function uploadFromChat(event) { const file = event.target.files[0]; event.target.value = ''; attachmentOpen.value = false; if (!file) return; try { const document = normalizeDocument((await uploadDocument(file)).document); selectedDocuments.value = [...selectedDocuments.value, document]; notify(`正在解析“${document.name}”…`); await waitForDocument(document) } catch (error) { notify(`文档未能用于检索：${error.message}`, 'error') } }
 async function recognizeFromChat(event) { const file = event.target.files[0]; event.target.value = ''; attachmentOpen.value = false; if (!file) return; notify('正在识别图片…'); try { const result = await recognizeImage(file); messages.value.push({ is_user: true, content: `请识别图片：${file.name}` }, { is_user: false, content: `图片识别结果：${result.class_name || '未识别到明确类别'}` }); await scrollToBottom(); notify('图片识别完成。', 'success') } catch (error) { notify(`图片识别失败：${error.message}`, 'error') } }
-async function send() { const text = question.value.trim(); if (!text || sending.value) return; const unavailable = selectedDocuments.value.find(item => item.status !== 'ready'); if (unavailable) return notify(`“${unavailable.name}”仍在解析，完成后会自动绑定。`, 'error'); question.value = ''; sending.value = true; messages.value.push({ is_user: true, content: text }, { is_user: false, content: '' }); await scrollToBottom(); const answer = messages.value.at(-1); try { await streamSessionMessage({ sessionId: activeSession.value, question: text, documentIds: selectedDocuments.value.map(item => item.id) }, { onSession: id => { activeSession.value = id }, onChunk: async chunk => { answer.content += chunk; await scrollToBottom() }, onDone: loadSessions }) } catch (error) { answer.content = error.message || '请求未完成。' } finally { sending.value = false; await scrollToBottom() } }
+async function send() { const text = question.value.trim(); if (!text || sending.value) return; const unavailable = selectedDocuments.value.find(item => item.status !== 'ready'); if (unavailable) return notify(`“${unavailable.name}”仍在解析，完成后会自动绑定。`, 'error'); question.value = ''; sending.value = true; messages.value.push({ is_user: true, content: text }, { is_user: false, content: '' }); await scrollToBottom(); const answer = messages.value.at(-1); try { await streamSessionMessage({ sessionId: activeSession.value, question: text, documentIds: selectedDocuments.value.map(item => item.id) }, { onSession: id => { activeSession.value = id }, onChunk: async chunk => { answer.content += chunk; await scrollToBottom() }, onDone: () => { formatAssistantMessage(answer); loadSessions() } }) } catch (error) { answer.content = error.message || '请求未完成。' } finally { sending.value = false; await scrollToBottom() } }
 onMounted(loadSessions)
 </script>
 
@@ -96,4 +126,5 @@ onMounted(loadSessions)
 @media(max-width:760px){.chat-page{grid-template-columns:1fr}}
 .model-selector{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:#64748b;font-size:12px}.model-selector select{border:1px solid #dfe4eb;border-radius:6px;background:#fff;color:#334155;padding:4px 7px;font-size:12px}
 .message-content.markdown :deep(h1),.message-content.markdown :deep(h2),.message-content.markdown :deep(h3){margin:0 0 14px;color:#202938;font:inherit;line-height:1.8}
+.message-content.markdown :deep(.katex-display){margin:14px 0;overflow-x:auto;overflow-y:hidden}
 </style>

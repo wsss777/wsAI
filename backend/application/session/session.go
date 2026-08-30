@@ -109,11 +109,12 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 	flusher.Flush()
 	zap.L().Debug("SSE message to existing session")
 
-	knowledge, citations, retrievalErr := ragapp.RetrieveContext(ctx, userName, sessionID, userQuestion)
+	retrieval, retrievalErr := ragapp.RetrieveContext(ctx, userName, sessionID, userQuestion, modelType)
 	if retrievalErr != nil {
-		logger.L().Warn("RAG 检索失败，继续普通对话", zap.Error(retrievalErr))
+		logger.L().Warn("RAG 查询预处理或检索失败，继续使用可用结果", zap.Error(retrievalErr))
 	}
-	_, err_ := helper.StreamResponseWithContext(userName, ctx, cb, userQuestion, knowledge)
+	logger.L().Info("RAG 查询计划", zap.String("session_id", sessionID), zap.Bool("need_retrieval", retrieval.Plan.NeedRetrieval), zap.String("search_query", retrieval.Plan.SearchQuery), zap.String("planner", retrieval.Plan.Planner), zap.Int("citation_count", len(retrieval.Citations)))
+	_, err_ := helper.StreamResponseWithContext(userName, ctx, cb, userQuestion, retrieval.Knowledge)
 	if err_ != nil {
 		zap.L().Error("StreamMessageToExistingSession StreamResponse error",
 			zap.String("username", userName),
@@ -123,8 +124,8 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 		writeStreamError(writer, flusher, modelErrorMessage(err_))
 		return code.AIModelFail
 	}
-	if len(citations) > 0 {
-		data, _ := json.Marshal(citations)
+	if len(retrieval.Citations) > 0 {
+		data, _ := json.Marshal(retrieval.Citations)
 		_, _ = writer.Write([]byte("event: citations\ndata: " + string(data) + "\n\n"))
 	}
 

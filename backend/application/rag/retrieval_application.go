@@ -17,25 +17,39 @@ type Citation struct {
 	Score      float64 `json:"score"`
 }
 
-func RetrieveContext(ctx context.Context, user, sessionID, question string) (string, []Citation, error) {
+type RetrievalResult struct {
+	Knowledge string
+	Citations []Citation
+	Plan      QueryPlan
+}
+
+func RetrieveContext(ctx context.Context, user, sessionID, question, modelType string) (RetrievalResult, error) {
 	bindings, err := repo.ListSessionDocumentsBySessionID(sessionID)
 	if err != nil {
-		return "", nil, err
+		return RetrievalResult{}, err
 	}
 	ids := make([]string, 0, len(bindings))
 	for _, b := range bindings {
 		ids = append(ids, b.DocumentID)
 	}
 	if len(ids) == 0 {
-		return "", []Citation{}, nil
+		return RetrievalResult{Citations: []Citation{}, Plan: QueryPlan{NeedRetrieval: false, Planner: "no_documents"}}, nil
 	}
-	vectors, err := infrarag.Embed(ctx, []string{question})
+	history, planErr := repo.GetRecentMessagesBySessionID(sessionID, 6)
+	plan, err := PrepareQuery(ctx, modelType, question, history)
 	if err != nil {
-		return "", nil, err
+		planErr = err
+	}
+	if !plan.NeedRetrieval {
+		return RetrievalResult{Citations: []Citation{}, Plan: plan}, planErr
+	}
+	vectors, err := infrarag.Embed(ctx, []string{plan.SearchQuery})
+	if err != nil {
+		return RetrievalResult{Plan: plan}, err
 	}
 	hits, err := infrarag.Search(ctx, vectors[0], user, ids, config.C.RAGConfig.TopK)
 	if err != nil {
-		return "", nil, err
+		return RetrievalResult{Plan: plan}, err
 	}
 	chunkIDs := make([]string, len(hits))
 	for i, h := range hits {
@@ -43,7 +57,7 @@ func RetrieveContext(ctx context.Context, user, sessionID, question string) (str
 	}
 	chunks, err := repo.GetChunksByChunkIDs(chunkIDs)
 	if err != nil {
-		return "", nil, err
+		return RetrievalResult{Plan: plan}, err
 	}
 	byID := map[string]string{}
 	for _, c := range chunks {
@@ -61,5 +75,5 @@ func RetrieveContext(ctx context.Context, user, sessionID, question string) (str
 			citations = append(citations, Citation{DocumentID: h.DocumentID, FileName: h.FileName, ChunkID: h.ChunkID, Score: h.Score})
 		}
 	}
-	return b.String(), citations, nil
+	return RetrievalResult{Knowledge: b.String(), Citations: citations, Plan: plan}, planErr
 }
