@@ -2,8 +2,10 @@ package ai
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
+	"time"
 	"wsai/backend/infra/logger"
 	"wsai/backend/infra/rabbitmq"
 	"wsai/backend/model"
@@ -45,10 +47,45 @@ func (a *AIHelper) StreamResponseWithContext(username string, ctx context.Contex
 		systemMessages = append(systemMessages, &schema.Message{Role: schema.System, Content: "请仅依据以下资料回答；资料不足时明确说明。\n\n" + knowledge})
 	}
 	messages = append(systemMessages, messages...)
-	content, err := a.model.StreamResponse(ctx, messages, cb)
+
+	modelStart := time.Now()
+	var firstChunkOnce sync.Once
+	var ttft time.Duration
+	measuredCallback := func(msg string) {
+		if msg != "" {
+			firstChunkOnce.Do(func() {
+				ttft = time.Since(modelStart)
+			})
+		}
+		cb(msg)
+	}
+	content, err := a.model.StreamResponse(ctx, messages, measuredCallback)
+	ttftMS := int64(-1)
+	if ttft > 0 {
+		ttftMS = ttft.Milliseconds()
+	}
+	metrics := []zap.Field{
+		zap.String("session_id", a.SessionID),
+		zap.String("username", username),
+		zap.String("model_type", a.model.GetModelType()),
+		zap.String("model_name", a.model.GetModelName()),
+		zap.Int64("ttft_ms", ttftMS),
+		zap.Int64("completion_ms", time.Since(modelStart).Milliseconds()),
+	}
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			logger.L().Info("AI 流式响应指标", append(metrics,
+				zap.String("result", "canceled"),
+			)...)
+			return nil, err
+		}
+		logger.L().Warn("AI 流式响应指标", append(metrics,
+			zap.String("result", "error"),
+			zap.Error(err),
+		)...)
 		return nil, err
 	}
+	logger.L().Info("AI 流式响应指标", append(metrics, zap.String("result", "success"))...)
 	a.AddMessage(content, username, false, true)
 	return &model.Message{SessionID: a.SessionID, Content: content, UserName: username, IsUser: false}, nil
 }

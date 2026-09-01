@@ -104,12 +104,14 @@ func CreateStreamSessionAndSendFirstMessage(c *gin.Context) {
 			return
 		}
 	}
-	//// 立即将会话 ID 返回前端，以便立即显示新会话标签。
-	c.Writer.WriteString(fmt.Sprintf("data: {\"sessionId\": \"%s\"}\n\n", sessionID))
+	// 立即将会话 ID 返回前端，以便立即显示新会话标签。
+	if _, err := c.Writer.WriteString(fmt.Sprintf("data: {\"sessionId\": \"%s\"}\n\n", sessionID)); err != nil {
+		return
+	}
 	c.Writer.Flush()
 
 	// 随后开始流式发送本次回答（包含最后的 [DONE]）。
-	code_ = session.StreamMessageToExistingSession(userName, sessionID,
+	code_ = session.StreamMessageToExistingSession(c.Request.Context(), userName, sessionID,
 		req.UserQuestion, req.ModelType, http.ResponseWriter(c.Writer))
 	if code_ != code.CodeSuccess {
 		c.SSEvent("error", gin.H{
@@ -141,7 +143,7 @@ func SendMessageStream(c *gin.Context) {
 	}
 	setSSEHeaders(c)
 
-	code_ := session.ChatStreamSend(userName, req.SessionID, req.UserQuestion, req.ModelType, http.ResponseWriter(c.Writer))
+	code_ := session.ChatStreamSend(c.Request.Context(), userName, req.SessionID, req.UserQuestion, req.ModelType, http.ResponseWriter(c.Writer))
 	if code_ != code.CodeSuccess {
 		c.SSEvent("error", gin.H{
 			"message": "failed to send message stream",

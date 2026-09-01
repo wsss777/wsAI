@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	ragapp "wsai/backend/application/rag"
 	ai "wsai/backend/infra/llm"
 	"wsai/backend/infra/logger"
@@ -16,8 +17,6 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
-
-var ctx = context.Background()
 
 func GetUserSessionsByUsername(username string) ([]model.SessionInfo, error) {
 	if username == "" {
@@ -48,9 +47,7 @@ func CreateStreamSessionOnly(username string, userQuestion string) (string, code
 	if question == "" {
 		question = "新会话"
 	}
-	if len(question) > 80 {
-		question = question[:77] + "..."
-	}
+	question = truncateRunes(question, 80)
 	newSession := &model.Session{
 		ID:       uuid.New().String(),
 		UserName: username,
@@ -60,7 +57,7 @@ func CreateStreamSessionOnly(username string, userQuestion string) (string, code
 	if err != nil {
 		logger.L().Warn("session.CreateSession error",
 			zap.String("username", username),
-			zap.String("question_preview", question[:min(50, len(question))]),
+			zap.String("question_preview", truncateRunes(question, 50)),
 			zap.Error(err))
 		return "", code.CodeServerBusy
 
@@ -68,7 +65,25 @@ func CreateStreamSessionOnly(username string, userQuestion string) (string, code
 	return createdSession.ID, code.CodeSuccess
 }
 
-func StreamMessageToExistingSession(userName string, sessionID string, userQuestion string, modelType string, writer http.ResponseWriter) code.Code {
+// truncateRunes 按 Unicode 字符截断，避免按字节切分中文等多字节字符而产生非法 UTF-8。
+func truncateRunes(value string, maxRunes int) string {
+	chars := []rune(value)
+	if len(chars) <= maxRunes {
+		return value
+	}
+	if maxRunes <= 3 {
+		return string(chars[:maxRunes])
+	}
+	return string(chars[:maxRunes-3]) + "..."
+}
+
+func StreamMessageToExistingSession(requestCtx context.Context, userName string, sessionID string, userQuestion string, modelType string, writer http.ResponseWriter) code.Code {
+	streamCtx, cancel := context.WithCancel(requestCtx)
+	defer cancel()
+	if streamCtx.Err() != nil {
+		return code.CodeSuccess
+	}
+
 	if err := session.TouchSession(sessionID); err != nil {
 		logger.L().Warn("session.TouchSession error", zap.String("session_id", sessionID), zap.Error(err))
 	}
@@ -95,26 +110,40 @@ func StreamMessageToExistingSession(userName string, sessionID string, userQuest
 		return code.AIModelFail
 	}
 
+	var clientDisconnected atomic.Bool
 	cb := func(msg string) {
+		if clientDisconnected.Load() {
+			return
+		}
 		zap.L().Debug("sending SSE chunk",
 			zap.Int("length", len(msg)),
 		)
 		_, werr := writer.Write([]byte("data: " + msg + "\n\n"))
 		if werr != nil {
-			logger.L().Warn("SSE write error",
-				zap.Error(werr))
+			if clientDisconnected.CompareAndSwap(false, true) {
+				logger.L().Info("SSE 客户端断开，取消 AI 流",
+					zap.String("session_id", sessionID),
+					zap.String("username", userName),
+					zap.Error(werr))
+				cancel()
+			}
 		}
-		return
 	}
 	flusher.Flush()
 	zap.L().Debug("SSE message to existing session")
 
-	retrieval, retrievalErr := ragapp.RetrieveContext(ctx, userName, sessionID, userQuestion, modelType)
-	if retrievalErr != nil {
+	retrieval, retrievalErr := ragapp.RetrieveContext(streamCtx, userName, sessionID, userQuestion, modelType)
+	if retrievalErr != nil && streamCtx.Err() == nil {
 		logger.L().Warn("RAG 查询预处理或检索失败，继续使用可用结果", zap.Error(retrievalErr))
 	}
+	if streamCtx.Err() != nil {
+		return code.CodeSuccess
+	}
 	logger.L().Info("RAG 查询计划", zap.String("session_id", sessionID), zap.Bool("need_retrieval", retrieval.Plan.NeedRetrieval), zap.String("search_query", retrieval.Plan.SearchQuery), zap.String("planner", retrieval.Plan.Planner), zap.Int("citation_count", len(retrieval.Citations)))
-	_, err_ := helper.StreamResponseWithContext(userName, ctx, cb, userQuestion, retrieval.Knowledge)
+	_, err_ := helper.StreamResponseWithContext(userName, streamCtx, cb, userQuestion, retrieval.Knowledge)
+	if clientDisconnected.Load() || streamCtx.Err() != nil {
+		return code.CodeSuccess
+	}
 	if err_ != nil {
 		zap.L().Error("StreamMessageToExistingSession StreamResponse error",
 			zap.String("username", userName),
@@ -161,8 +190,8 @@ func modelErrorMessage(err error) string {
 	return "模型服务请求失败，请检查模型配置或稍后再试。"
 }
 
-func ChatStreamSend(userName string, sessionID string, userQuestion string, modelType string, writer http.ResponseWriter) code.Code {
-	return StreamMessageToExistingSession(userName, sessionID, userQuestion, modelType, writer)
+func ChatStreamSend(requestCtx context.Context, userName string, sessionID string, userQuestion string, modelType string, writer http.ResponseWriter) code.Code {
+	return StreamMessageToExistingSession(requestCtx, userName, sessionID, userQuestion, modelType, writer)
 }
 
 func GetChatHistory(userName string, sessionID string) ([]model.History, code.Code) {

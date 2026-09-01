@@ -8,7 +8,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 	"wsai/backend/config"
@@ -50,9 +49,7 @@ func main() {
 		panic(err)
 	}
 	defer func() {
-		if err := logger.L().Sync(); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "zap Logger.Sync() failed: %v\n", err)
-		}
+		_ = logger.L().Sync()
 	}()
 	logger.L().Info("服务启动",
 		zap.String("version", "v1"),
