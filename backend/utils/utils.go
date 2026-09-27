@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"math/rand"
 	"wsai/backend/model"
 
@@ -64,14 +65,19 @@ func ConvertToModelMessage(sessionID string, username string, msg *schema.Messag
 func ConvertToSchemaMessages(msgs []*model.Message) []*schema.Message {
 	schemaMsgs := make([]*schema.Message, 0, len(msgs))
 	for _, m := range msgs {
-		role := schema.Assistant
-		if m.IsUser {
-			role = schema.User
+		role := schema.RoleType(m.Role)
+		if role == "" {
+			if m.IsUser {
+				role = schema.User
+			} else {
+				role = schema.Assistant
+			}
 		}
-		schemaMsgs = append(schemaMsgs, &schema.Message{
-			Role:    role,
-			Content: m.Content,
-		})
+		message := &schema.Message{Role: role, Content: m.Content, ToolCallID: m.ToolCallID, ToolName: m.ToolName}
+		if m.ToolCallsJSON != "" {
+			_ = json.Unmarshal([]byte(m.ToolCallsJSON), &message.ToolCalls)
+		}
+		schemaMsgs = append(schemaMsgs, message)
 	}
 	return schemaMsgs
 }

@@ -64,17 +64,11 @@ func (f *AIModelFactory) registerCreators() {
 
 	// Ollama 模型。
 	f.creators[ModelTypeOllama] = func(ctx context.Context, config map[string]interface{}) (AIModel, error) {
-		baseURL := config["baseURL"].(string)
-		modelName, ok := config["modelName"].(string)
-		if !ok {
-			err := fmt.Errorf("ollama requires non-empty modelName")
-			logger.L().Error("Failed to create Ollama model: missing modelName",
-				zap.String("model_type", ModelTypeOllama),
-				zap.Error(err),
-			)
+		providerConfig, err := LoadChatProviderConfig(ModelTypeOllama)
+		if err != nil {
 			return nil, err
 		}
-		return NewOllamaModel(ctx, baseURL, modelName)
+		return NewOllamaModel(ctx, providerConfig.BaseURL, providerConfig.Model)
 
 	}
 }

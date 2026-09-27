@@ -42,3 +42,20 @@ collection = "wsai_doc_chunks"
 embedding_model = "embedding-3"
 embedding_size = 1024
 top_k = 5
+
+[agent]
+# 仅允许 Agent 访问此工作区；生产环境请使用绝对路径覆盖此项。
+workspace_root = "."
+max_steps = 8
+
+[memory]
+# 发送给模型的会话记忆最大估算 token；超过后压缩较早的完整轮次。
+context_max_tokens = 12000
+# 尽量完整保留的最近用户轮次数；若单轮本身过大，仍以最大窗口为准。
+recent_turns = 4
+# 工具结果超过该字节数时，正文归档到 agent_artifacts。
+max_inline_tool_result_bytes = 8192
+
+[ollama]
+base_url = "http://127.0.0.1:11434"
+model_name = ""

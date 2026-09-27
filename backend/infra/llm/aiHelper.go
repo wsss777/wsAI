@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	memory "wsai/backend/application/memory"
+	"wsai/backend/config"
 	"wsai/backend/infra/logger"
-	"wsai/backend/infra/rabbitmq"
 	"wsai/backend/model"
-	"wsai/backend/utils"
 
 	"github.com/cloudwego/eino/schema"
-	"github.com/google/uuid"
 
 	"go.uber.org/zap"
 )
@@ -20,21 +19,21 @@ import (
 // AIHelper 表示与单个会话绑定的助手。
 type AIHelper struct {
 	model     AIModel
-	messages  []*model.Message
-	muRW      sync.RWMutex
 	streamMu  sync.Mutex
 	SessionID string
-	saveFunc  func(*model.Message) (*model.Message, error)
 }
 
 func (a *AIHelper) StreamResponseWithContext(username string, ctx context.Context, cb StreamCallback, question, knowledge string) (*model.Message, error) {
 	a.streamMu.Lock()
 	defer a.streamMu.Unlock()
 
-	a.AddMessage(question, username, true, true)
-	a.muRW.RLock()
-	messages := utils.ConvertToSchemaMessages(a.messages)
-	a.muRW.RUnlock()
+	if _, err := memory.AppendUser(a.SessionID, username, question, 0); err != nil {
+		return nil, err
+	}
+	messages, err := a.loadConversation(ctx, username, question)
+	if err != nil {
+		return nil, err
+	}
 	providerName := a.model.GetModelType()
 	if providerName == ModelTypeZhipu {
 		providerName = "智谱 GLM"
@@ -47,6 +46,7 @@ func (a *AIHelper) StreamResponseWithContext(username string, ctx context.Contex
 		systemMessages = append(systemMessages, &schema.Message{Role: schema.System, Content: "请仅依据以下资料回答；资料不足时明确说明。\n\n" + knowledge})
 	}
 	messages = append(systemMessages, messages...)
+	messages = memory.FitMessagesToBudget(messages, config.C.MemoryConfig.ContextMaxTokens, 1)
 
 	modelStart := time.Now()
 	var firstChunkOnce sync.Once
@@ -86,99 +86,18 @@ func (a *AIHelper) StreamResponseWithContext(username string, ctx context.Contex
 		return nil, err
 	}
 	logger.L().Info("AI 流式响应指标", append(metrics, zap.String("result", "success"))...)
-	a.AddMessage(content, username, false, true)
+	if _, err := memory.AppendAssistant(a.SessionID, username, content, 0); err != nil {
+		return nil, err
+	}
 	return &model.Message{SessionID: a.SessionID, Content: content, UserName: username, IsUser: false}, nil
 }
 
 // NewAIHelper 创建新的 AIHelper 实例。
 func NewAIHelper(model_ AIModel, SessionID string) *AIHelper {
 	return &AIHelper{
-		model:    model_,
-		messages: make([]*model.Message, 0, 20),
-		saveFunc: func(msg *model.Message) (*model.Message, error) {
-			data, genErr := rabbitmq.GenerateMessageMQPara(msg.MessageID, msg.SessionID, msg.Content, msg.UserName, msg.IsUser)
-			if genErr != nil {
-				logger.L().Error("Generate RabbitMQ message param failed",
-					zap.Error(genErr),
-					zap.String("session_id", msg.SessionID),
-					zap.String("username", msg.UserName),
-					zap.Bool("is_user", msg.IsUser))
-				return msg, genErr
-			}
-
-			err := rabbitmq.RMQMessage.PublishWork(data)
-			if err != nil {
-				logger.L().Error("Async publish message to RabbitMQ failed",
-					zap.Error(err),
-					zap.String("session_id", msg.SessionID),
-					zap.String("username", msg.UserName),
-					zap.Bool("is_user", msg.IsUser),
-					zap.Int("content_length", len(msg.Content)))
-			}
-			return msg, err
-
-		},
+		model:     model_,
 		SessionID: SessionID,
 	}
-}
-
-// addMessage 将消息添加到内存中，并调用自定义存储函数。
-func (a *AIHelper) AddMessage(Content string, UserName string, IsUser bool, Save bool) {
-	userMsg := model.Message{
-		MessageID: uuid.NewString(),
-		SessionID: a.SessionID,
-		Content:   Content,
-		UserName:  UserName,
-		IsUser:    IsUser,
-	}
-	a.muRW.Lock()
-	a.messages = append(a.messages, &userMsg)
-	a.messages = trimContextMessages(a.messages)
-	a.muRW.Unlock()
-
-	if Save {
-		if _, err := a.saveFunc(&userMsg); err != nil {
-			logger.L().Warn("Call saveFunc failed ",
-				zap.Error(err),
-				zap.String("session_id", a.SessionID),
-				zap.String("username", UserName),
-				zap.Bool("is_user", IsUser),
-			)
-		}
-	}
-}
-
-func trimContextMessages(messages []*model.Message) []*model.Message {
-	if len(messages) > MaxContextMessages {
-		messages = messages[len(messages)-MaxContextMessages:]
-	}
-	// 上下文从用户提问开始，避免窗口截断后以助手回答开头。
-	if len(messages) > 0 && !messages[0].IsUser {
-		messages = messages[1:]
-	}
-	return messages
-}
-
-// SetSaveFunc 通过回调函数保存消息到数据库，以避免循环依赖。
-// 传入外部保存函数后，可支持同步、异步等不同策略。
-func (a *AIHelper) SetSaveFunc(saveFunc func(*model.Message) (*model.Message, error)) {
-	a.saveFunc = saveFunc
-}
-
-// GetMessages 获取所有消息历史
-func (a *AIHelper) GetAllMessage() []*model.Message {
-	a.muRW.RLock()
-	defer a.muRW.RUnlock()
-	out := make([]*model.Message, len(a.messages))
-	copy(out, a.messages)
-	return out
-}
-
-// RestoreMessages 在切换模型时保留已有会话上下文。
-func (a *AIHelper) RestoreMessages(messages []*model.Message) {
-	a.muRW.Lock()
-	defer a.muRW.Unlock()
-	a.messages = trimContextMessages(append([]*model.Message(nil), messages...))
 }
 
 // 流式生成
@@ -188,10 +107,13 @@ func (a *AIHelper) StreamResponse(username string,
 	a.streamMu.Lock()
 	defer a.streamMu.Unlock()
 
-	a.AddMessage(userQuestion, username, true, true)
-	a.muRW.RLock()
-	messages := utils.ConvertToSchemaMessages(a.messages)
-	a.muRW.RUnlock()
+	if _, err := memory.AppendUser(a.SessionID, username, userQuestion, 0); err != nil {
+		return nil, err
+	}
+	messages, err := a.loadConversation(ctx, username, userQuestion)
+	if err != nil {
+		return nil, err
+	}
 	content, err := a.model.StreamResponse(ctx, messages, cb)
 	if err != nil {
 		logger.L().Error("AI model StreamResponse failed",
@@ -209,10 +131,24 @@ func (a *AIHelper) StreamResponse(username string,
 		UserName:  username,
 		IsUser:    false,
 	}
-	a.AddMessage(content, username, false, true)
+	if _, err := memory.AppendAssistant(a.SessionID, username, content, 0); err != nil {
+		return nil, err
+	}
 
 	return modelMsg, nil
 
+}
+
+func (a *AIHelper) loadConversation(ctx context.Context, username, question string) ([]*schema.Message, error) {
+	return memory.Load(ctx, a.SessionID, username, memory.LoadOptions{
+		Question: question, MaxTokens: config.C.MemoryConfig.ContextMaxTokens, KeepRecentTurns: config.C.MemoryConfig.RecentTurns,
+		Summarize: func(summaryCtx context.Context, previous, transcript string) (string, error) {
+			return a.model.GenerateResponse(summaryCtx, []*schema.Message{
+				schema.SystemMessage("你是会话工作摘要器。合并旧摘要与新增对话，只保留目标、约束、决定、已验证结果、未完成事项和必要引用。不要保留闲聊，不要编造。使用简洁中文。"),
+				schema.UserMessage("旧摘要：\n" + previous + "\n\n新增对话：\n" + transcript),
+			})
+		},
+	})
 }
 
 // 获取当前使用的Ai模型

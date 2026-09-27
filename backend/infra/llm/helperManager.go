@@ -4,15 +4,11 @@ import (
 	"context"
 	"sync"
 	"time"
-	message "wsai/backend/infra/mysql/repository"
-	"wsai/backend/model"
 )
 
 var ctx = context.Background()
 
 const (
-	// MaxContextMessages 是每个会话传给模型的最近消息上限。
-	MaxContextMessages = 32
 	helperIdleTTL      = 30 * time.Minute
 	helperCleanupEvery = time.Minute
 )
@@ -60,26 +56,8 @@ func (m *AIHelperManager) GetOrCreateAIHelper(username string, sessionID string,
 	if err != nil {
 		return nil, err
 	}
-	if exists {
-		helper.RestoreMessages(entry.helper.GetAllMessage())
-	} else {
-		recentMessages, err := message.GetRecentMessagesBySessionID(sessionID, MaxContextMessages)
-		if err != nil {
-			return nil, err
-		}
-		helper.RestoreMessages(toMessagePointers(recentMessages))
-	}
-
 	userHelpers[sessionID] = &managedHelper{helper: helper, lastAccess: time.Now()}
 	return helper, nil
-}
-
-func toMessagePointers(messages []model.Message) []*model.Message {
-	result := make([]*model.Message, 0, len(messages))
-	for i := range messages {
-		result = append(result, &messages[i])
-	}
-	return result
 }
 
 // GetHelper 获取指定用户和会话的 AIHelper。

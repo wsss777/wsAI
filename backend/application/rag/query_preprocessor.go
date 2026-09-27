@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 	ai "wsai/backend/infra/llm"
-	"wsai/backend/model"
 
 	"github.com/cloudwego/eino/schema"
 )
@@ -28,7 +27,7 @@ type queryPlanPayload struct {
 
 // PrepareQuery 基于当前问题和有限会话上下文，决定是否检索并生成用于向量召回的 Query。
 // 模型规划失败时返回原问题检索，避免预处理故障使知识库能力失效。
-func PrepareQuery(ctx context.Context, modelType, question string, history []model.Message) (QueryPlan, error) {
+func PrepareQuery(ctx context.Context, modelType, question string, history []*schema.Message) (QueryPlan, error) {
 	question = strings.TrimSpace(question)
 	if question == "" {
 		return QueryPlan{NeedRetrieval: false, Planner: "rule"}, nil
@@ -84,7 +83,7 @@ func parseQueryPlan(content, originalQuestion string) (QueryPlan, error) {
 	return QueryPlan{NeedRetrieval: payload.NeedRetrieval, SearchQuery: payload.SearchQuery}, nil
 }
 
-func buildPlannerInput(question string, history []model.Message) string {
+func buildPlannerInput(question string, history []*schema.Message) string {
 	const maxHistoryMessages = 6
 	const maxMessageRunes = 500
 	start := len(history) - maxHistoryMessages
@@ -95,8 +94,12 @@ func buildPlannerInput(question string, history []model.Message) string {
 	builder.WriteString("最近对话：\n")
 	for _, message := range history[start:] {
 		role := "助手"
-		if message.IsUser {
+		if message.Role == schema.User {
 			role = "用户"
+		} else if message.Role == schema.System {
+			role = "历史摘要"
+		} else if message.Role == schema.Tool {
+			role = "工具"
 		}
 		content := []rune(strings.TrimSpace(message.Content))
 		if len(content) > maxMessageRunes {

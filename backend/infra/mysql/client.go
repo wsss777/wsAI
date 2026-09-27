@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	gormLogger "gorm.io/gorm/logger"
 )
 
@@ -81,14 +82,79 @@ func Init() error {
 
 // autoMigrate 自动迁移表结构
 func autoMigrate() error {
-	return DB.AutoMigrate(
+	if err := DB.AutoMigrate(
 		new(model.User),
 		new(model.Session),
+		new(model.SessionMemory),
+		new(model.LongTermMemory),
 		new(model.Message),
 		new(model.Document),
 		new(model.DocumentChunk),
 		new(model.SessionDocument),
-	)
+		new(model.AgentRun),
+		new(model.AgentStep),
+		new(model.AgentToolCall),
+		new(model.AgentArtifact),
+		new(model.AgentFileChange),
+		new(model.AgentApproval),
+	); err != nil {
+		return err
+	}
+	return backfillConversationSequences()
+}
+
+// backfillConversationSequences 为早于会话全局顺序号的旧消息补齐数据。
+// 该操作具备幂等性：所有记录拥有正序号后，启动时只执行轻量的去重查询。
+func backfillConversationSequences() error {
+	var sessionIDs []string
+	if err := DB.Model(&model.Message{}).
+		Distinct("session_id").
+		Where("sequence_no = 0").
+		Pluck("session_id", &sessionIDs).Error; err != nil {
+		return err
+	}
+	for _, sessionID := range sessionIDs {
+		if err := DB.Transaction(func(tx *gorm.DB) error {
+			var session model.Session
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&session, "id = ?", sessionID).Error; err != nil {
+				return err
+			}
+			var items []model.Message
+			if err := tx.Where("session_id = ?", sessionID).
+				Order("created_at asc, id asc").Find(&items).Error; err != nil {
+				return err
+			}
+			for index := range items {
+				role := items[index].Role
+				if role == "" {
+					if items[index].IsUser {
+						role = model.MessageRoleUser
+					} else {
+						role = model.MessageRoleAssistant
+					}
+				}
+				visibility := items[index].Visibility
+				if visibility == "" {
+					visibility = model.MessageVisibilityUser
+				}
+				if err := tx.Model(&model.Message{}).Where("id = ?", items[index].ID).Updates(map[string]any{
+					"sequence_no": uint64(index + 1),
+					"role":        role,
+					"visibility":  visibility,
+				}).Error; err != nil {
+					return err
+				}
+			}
+			if err := tx.Model(&session).Update("memory_sequence", uint64(len(items))).Error; err != nil {
+				return err
+			}
+			// 旧消息尚不可见时生成的摘要不可信，应当删除后重新生成。
+			return tx.Where("session_id = ?", sessionID).Delete(&model.SessionMemory{}).Error
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Close 关闭连接
