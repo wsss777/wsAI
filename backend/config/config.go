@@ -71,6 +71,15 @@ type Config struct {
 		EmbeddingSize  int    `mapstructure:"embedding_size"`
 		TopK           int    `mapstructure:"top_k"`
 	} `mapstructure:"rag"`
+	AgentConfig struct {
+		WorkspaceRoot string `mapstructure:"workspace_root"`
+		MaxSteps      int    `mapstructure:"max_steps"`
+	} `mapstructure:"agent"`
+	MemoryConfig struct {
+		ContextMaxTokens         int `mapstructure:"context_max_tokens"`
+		RecentTurns              int `mapstructure:"recent_turns"`
+		MaxInlineToolResultBytes int `mapstructure:"max_inline_tool_result_bytes"`
+	} `mapstructure:"memory"`
 	ChatConfig struct {
 		ModelProvider string `mapstructure:"model_provider"`
 	} `mapstructure:"chat"`
@@ -84,6 +93,10 @@ type Config struct {
 		BaseURL   string `mapstructure:"base_url"`
 		ChatModel string `mapstructure:"chat_model"`
 	} `mapstructure:"zhipu"`
+	OllamaConfig struct {
+		BaseURL string `mapstructure:"base_url"`
+		Model   string `mapstructure:"model_name"`
+	} `mapstructure:"ollama"`
 }
 
 func InitConfig() {
@@ -111,6 +124,11 @@ func InitConfig() {
 		v.SetDefault("rag.embedding_model", "embedding-3")
 		v.SetDefault("rag.embedding_size", 1024)
 		v.SetDefault("rag.top_k", 5)
+		v.SetDefault("agent.workspace_root", ".")
+		v.SetDefault("agent.max_steps", 8)
+		v.SetDefault("memory.context_max_tokens", 12000)
+		v.SetDefault("memory.recent_turns", 4)
+		v.SetDefault("memory.max_inline_tool_result_bytes", 8192)
 
 		C = new(Config)
 		if err := v.Unmarshal(C); err != nil {
@@ -145,4 +163,7 @@ func applyEnvironment(c *Config) {
 	override("ZHIPU_API_KEY", func(value string) { c.ZhipuConfig.APIKey = value })
 	override("ZHIPU_BASE_URL", func(value string) { c.ZhipuConfig.BaseURL = value })
 	override("ZHIPU_CHAT_MODEL", func(value string) { c.ZhipuConfig.ChatModel = value })
+	override("OLLAMA_BASE_URL", func(value string) { c.OllamaConfig.BaseURL = value })
+	override("OLLAMA_MODEL_NAME", func(value string) { c.OllamaConfig.Model = value })
+	override("AGENT_WORKSPACE_ROOT", func(value string) { c.AgentConfig.WorkspaceRoot = value })
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	ragapp "wsai/backend/application/rag"
 	"wsai/backend/application/session"
+	repo "wsai/backend/infra/mysql/repository"
 	"wsai/backend/model"
 	"wsai/backend/response"
 	"wsai/backend/response/code"
@@ -193,4 +194,26 @@ func setSSEHeaders(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("Access-Control-Allow-Origin", "*")
 	c.Header("X-Accel-Buffering", "no")
+}
+
+func ListLongTermMemories(c *gin.Context) {
+	items, err := repo.ListActiveLongTermMemories(c.GetString("username"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to load memories"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"memories": items})
+}
+
+func DeleteLongTermMemory(c *gin.Context) {
+	deleted, err := repo.DeleteLongTermMemoryByID(c.GetString("username"), c.Param("memory_id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to delete memory"})
+		return
+	}
+	if !deleted {
+		c.JSON(http.StatusNotFound, gin.H{"message": "memory not found"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

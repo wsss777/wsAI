@@ -31,6 +31,14 @@ func GetSessionByID(sessionID string) (*model.Session, error) {
 	err := mysql.DB.Where("id = ?", sessionID).First(&session).Error
 	return &session, err
 }
+
+func SessionBelongsToUser(sessionID, userName string) (bool, error) {
+	var count int64
+	err := mysql.DB.Model(&model.Session{}).
+		Where("id = ? AND user_name = ? AND deleted_at IS NULL", sessionID, userName).
+		Count(&count).Error
+	return count == 1, err
+}
 func FindUserSessions(userID string) ([]*model.Session, error) {
 	var sessions []*model.Session
 	err := mysql.DB.Select("id", "title", "updated_at").

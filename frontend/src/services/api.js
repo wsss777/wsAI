@@ -53,6 +53,9 @@ export const unbindDocument = (sessionId, documentId) => request(`/rag/sessions/
 export const recognizeImage = file => { const data = new FormData(); data.append('image', file); return request('/image/recognize', { method: 'POST', body: data }) }
 export const fetchSessions = () => request('/AI/chatMessage/sessions')
 export const fetchHistory = id => request(`/AI/chatMessage/sessions/${id}/messages`)
+export const fetchAgentArtifact = id => request(`/agent/artifacts/${id}`)
+export const fetchMemories = () => request('/AI/memories')
+export const deleteMemory = id => request(`/AI/memories/${id}`, { method: 'DELETE' })
 let selectedChatModelType = 'openai'
 export function setChatModelType(modelType) { selectedChatModelType = modelType === 'zhipu' ? 'zhipu' : 'openai' }
 export async function streamSessionMessage({ sessionId, question, documentIds = [], modelType = selectedChatModelType }, handlers = {}) {
@@ -85,4 +88,10 @@ export async function streamSessionMessage({ sessionId, question, documentIds = 
     }
   }
   handlers.onDone?.()
+}
+export async function streamAgentRun({ sessionId, question, documentIds = [], modelType = selectedChatModelType }, handlers = {}) {
+  const response = await fetch(`${authStore.apiBaseUrl.value}/agent/runs/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authStore.token.value}` }, body: JSON.stringify({ session_id: sessionId, question, document_ids: documentIds, model_type: modelType }) })
+  if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`)
+  const reader = response.body.getReader(), decoder = new TextDecoder(); let buffer = ''
+  while (true) { const { value, done } = await reader.read(); if (done) break; buffer += decoder.decode(value, { stream: true }); const blocks = buffer.split('\n\n'); buffer = blocks.pop() || ''; for (const block of blocks) { const lines = block.split('\n'); const event = lines.find(line => line.startsWith('event:'))?.replace(/^event:\s?/, ''); const data = lines.find(line => line.startsWith('data:'))?.replace(/^data:\s?/, ''); if (!data) continue; let parsed; try { parsed = JSON.parse(data) } catch { continue }; if (event === 'status') { handlers.onStatus?.(parsed); continue }; if (event === 'tool_call') { handlers.onToolCall?.(parsed); continue }; if (event === 'tool_result') { handlers.onToolResult?.(parsed); continue }; if (event === 'answer_delta') { handlers.onChunk?.(parsed.content || ''); continue }; if (event === 'error') throw new Error(parsed.message || 'Agent request failed'); if (event === 'done') handlers.onDone?.(parsed) } }
 }

@@ -2,7 +2,7 @@
 .idea/
 frontend/node_modules/
 frontend/dist/
-server.exe
+*.exe
 .gocache/
 doc/
 plans/

@@ -3,6 +3,7 @@ package rag
 import (
 	"context"
 	"strings"
+	"wsai/backend/application/memory"
 	"wsai/backend/config"
 	repo "wsai/backend/infra/mysql/repository"
 	infrarag "wsai/backend/infra/rag"
@@ -35,7 +36,11 @@ func RetrieveContext(ctx context.Context, user, sessionID, question, modelType s
 	if len(ids) == 0 {
 		return RetrievalResult{Citations: []Citation{}, Plan: QueryPlan{NeedRetrieval: false, Planner: "no_documents"}}, nil
 	}
-	history, planErr := repo.GetRecentMessagesBySessionID(sessionID, 6)
+	history, planErr := memory.Load(ctx, sessionID, user, memory.LoadOptions{
+		Question:        question,
+		MaxTokens:       config.C.MemoryConfig.ContextMaxTokens,
+		KeepRecentTurns: config.C.MemoryConfig.RecentTurns,
+	})
 	plan, err := PrepareQuery(ctx, modelType, question, history)
 	if err != nil {
 		planErr = err

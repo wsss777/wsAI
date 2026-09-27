@@ -42,6 +42,15 @@ func GenerateMessageMQPara(messageID string, sessionID string, content string, u
 	return data, nil
 }
 
+// PublishChatMessage 与普通对话使用同一可靠消息投递路径，供 Agent 保存可见问答使用。
+func PublishChatMessage(messageID, sessionID, content, username string, isUser bool) error {
+	data, err := GenerateMessageMQPara(messageID, sessionID, content, username, isUser)
+	if err != nil {
+		return err
+	}
+	return RMQMessage.PublishWork(data)
+}
+
 // ProcessMessageDelivery 处理 RabbitMQ 投递的消息
 func ProcessMessageDelivery(msg *amqp.Delivery) error {
 	var para MessageMQPara
@@ -69,7 +78,7 @@ func ProcessMessageDelivery(msg *amqp.Delivery) error {
 		IsUser:    para.IsUser,
 		CreatedAt: time.Now(),
 	}
-	created, err := message.CreateMessageIfAbsent(newMsg)
+	_, err := message.AppendConversationItem(newMsg)
 	if err != nil {
 		logger.L().Error("Save chatMessage message to DB failed",
 			zap.Error(err),
@@ -79,13 +88,6 @@ func ProcessMessageDelivery(msg *amqp.Delivery) error {
 			zap.String("username", newMsg.UserName),
 		)
 		return err
-	}
-	if !created {
-		logger.L().Info("RabbitMQ duplicate message ignored",
-			zap.String("message_id", newMsg.MessageID),
-			zap.Uint64("delivery_tag", msg.DeliveryTag),
-		)
-		return nil
 	}
 	logger.L().Debug("Chat message saved to DB successfully",
 		zap.String("message_id", newMsg.MessageID),

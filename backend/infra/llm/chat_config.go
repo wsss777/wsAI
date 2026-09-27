@@ -26,6 +26,8 @@ func NormalizeModelType(provider string) (string, error) {
 		return ModelTypeOpenAI, nil
 	case ModelTypeZhipu, "glm":
 		return ModelTypeZhipu, nil
+	case ModelTypeOllama:
+		return ModelTypeOllama, nil
 	default:
 		return "", fmt.Errorf("unsupported CHAT_MODEL_PROVIDER: %s", provider)
 	}
@@ -57,9 +59,11 @@ func LoadChatProviderConfig(modelType string) (ChatProviderConfig, error) {
 		providerConfig.APIKey = strings.TrimSpace(config.C.ZhipuConfig.APIKey)
 		providerConfig.BaseURL = strings.TrimSpace(config.C.ZhipuConfig.BaseURL)
 		providerConfig.Model = strings.TrimSpace(config.C.ZhipuConfig.ChatModel)
+	case ModelTypeOllama:
+		providerConfig.BaseURL = strings.TrimSpace(config.C.OllamaConfig.BaseURL)
+		providerConfig.Model = strings.TrimSpace(config.C.OllamaConfig.Model)
 	}
-
-	if providerConfig.APIKey == "" || providerConfig.BaseURL == "" || providerConfig.Model == "" {
+	if providerConfig.BaseURL == "" || providerConfig.Model == "" || (provider != ModelTypeOllama && providerConfig.APIKey == "") {
 		return ChatProviderConfig{}, fmt.Errorf("%s chat model configuration is incomplete", provider)
 	}
 	return providerConfig, nil

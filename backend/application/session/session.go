@@ -207,10 +207,26 @@ func GetChatHistory(userName string, sessionID string) ([]model.History, code.Co
 	history := make([]model.History, 0, len(messages))
 
 	for _, msg := range messages {
+		if msg.Visibility == model.MessageVisibilityInternal {
+			continue
+		}
+		content := msg.Content
+		if msg.Visibility == model.MessageVisibilityTrace && len([]rune(content)) > 300 {
+			content = string([]rune(content)[:300]) + "…"
+		}
 		history = append(history, model.History{
-			IsUser:  msg.IsUser,
-			Content: msg.Content,
+			IsUser:     msg.IsUser,
+			Content:    content,
+			Role:       msg.Role,
+			ToolName:   msg.ToolName,
+			ArtifactID: msg.ArtifactID,
+			Visibility: msg.Visibility,
 		})
 	}
 	return history, code.CodeSuccess
+}
+
+// SessionBelongsToUser 向其他用例暴露会话归属校验能力。
+func SessionBelongsToUser(userName, sessionID string) (bool, error) {
+	return session.SessionBelongsToUser(sessionID, userName)
 }

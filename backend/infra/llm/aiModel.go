@@ -17,6 +17,7 @@ type StreamCallback func(msg string)
 
 type AIModel interface {
 	GenerateResponse(ctx context.Context, messages []*schema.Message) (string, error)
+	GenerateWithTools(ctx context.Context, messages []*schema.Message, tools []*schema.ToolInfo) (*schema.Message, error)
 	StreamResponse(ctx context.Context, messages []*schema.Message, cb StreamCallback) (string, error)
 	GetModelType() string
 	GetModelName() string
@@ -28,6 +29,19 @@ func (o *OpenAIModel) GenerateResponse(ctx context.Context, messages []*schema.M
 		return "", fmt.Errorf("%s generate failed: %w", o.modelType, err)
 	}
 	return response.Content, nil
+}
+
+// GenerateWithTools 为单次 Agent 决策创建绑定工具的模型副本，不改变普通聊天模型的状态。
+func (o *OpenAIModel) GenerateWithTools(ctx context.Context, messages []*schema.Message, tools []*schema.ToolInfo) (*schema.Message, error) {
+	bound, err := o.llm.WithTools(tools)
+	if err != nil {
+		return nil, fmt.Errorf("%s bind tools failed: %w", o.modelType, err)
+	}
+	response, err := bound.Generate(ctx, messages)
+	if err != nil {
+		return nil, fmt.Errorf("%s agent generate failed: %w", o.modelType, err)
+	}
+	return response, nil
 }
 
 // OpenAI 模型。
@@ -131,6 +145,17 @@ func (o *OllamaModel) GenerateResponse(ctx context.Context, messages []*schema.M
 		return "", fmt.Errorf("ollama generate failed: %w", err)
 	}
 	return response.Content, nil
+}
+func (o *OllamaModel) GenerateWithTools(ctx context.Context, messages []*schema.Message, tools []*schema.ToolInfo) (*schema.Message, error) {
+	bound, err := o.llm.WithTools(tools)
+	if err != nil {
+		return nil, fmt.Errorf("ollama bind tools failed: %w", err)
+	}
+	response, err := bound.Generate(ctx, messages)
+	if err != nil {
+		return nil, fmt.Errorf("ollama agent generate failed: %w", err)
+	}
+	return response, nil
 }
 func (o *OllamaModel) GetModelType() string {
 	return "Ollama"
